@@ -286,3 +286,80 @@ function arrayOf<T>(v: unknown): T[] {
   if (!Array.isArray(v)) return [];
   return v as T[];
 }
+
+// ── 챗봇 프롬프트 로딩 (server/src/resources/chatbot-system-prompt.md) ───────
+
+function loadChatbotSystemPrompt(): string {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    // __dirname은 빌드 후 server/dist/가 되므로, 원본은 ../src/resources/ 아래에 있다.
+    const promptPath = path.resolve(__dirname, '../src/resources/chatbot-system-prompt.md');
+    if (fs.existsSync(promptPath)) return fs.readFileSync(promptPath, 'utf-8');
+  } catch {
+    // ignore
+  }
+
+  return `당신은 사용자의 생각을 정리하고 대화를 돕는 AI 비서다.
+응답은 자연스럽고 간결하게 하라.
+민감 정보(비밀번호, 토큰, API키, 연락처, 비공개 링크, 사적 내용)가 보이면 답변에서 그대로 노출하지 말고, 필요한 경우 주의만 언급하라.`;
+}
+
+// ── 채팅 답변용 Solar 호출 (chatbot 내장 챗봇) ──────────────────────────────
+
+export interface ChatMessageRole {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatReplyResult {
+  status: 'success' | 'service_error' | 'no_result' | 'parse_error';
+  content: string;
+  error?: string;
+}
+
+export async function generateChatReply(
+  messages: ChatMessageRole[],
+): Promise<ChatReplyResult> {
+  const systemPrompt = loadChatbotSystemPrompt();
+
+  const payload: ChatMessageRole[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
+
+  try {
+    const response = await client.chat.completions.create({
+      model: SOLAR_MODEL,
+      messages: payload,
+      temperature: 0.7,
+      max_tokens: 2048,
+    });
+
+    const choice = response.choices[0];
+    if (!choice || !choice.message) {
+      return {
+        status: 'no_result',
+        content: '',
+        error: 'Solar 응답이 없음',
+      };
+    }
+
+    const content = (choice.message as { content?: string | null }).content ?? '';
+    if (!content.trim()) {
+      return {
+        status: 'no_result',
+        content: '',
+        error: 'Solar 응답이 비어 있음',
+      };
+    }
+
+    return { status: 'success', content: content.trim() };
+  } catch (err) {
+    return {
+      status: 'service_error',
+      content: '',
+      error: String((err as Error).message ?? 'Solar 호출 오류'),
+    };
+  }
+}

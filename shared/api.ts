@@ -39,6 +39,74 @@ export interface LogoutResponse {
   ok: boolean;
 }
 
+export interface Chat {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatListChat {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  lastMessage: {
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: string;
+  } | null;
+}
+
+export interface ChatsResponse {
+  chats: ChatListChat[];
+}
+
+export interface ChatDetailResponse {
+  chat: {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+    messages: ChatMessage[];
+  };
+}
+
+export interface ChatMessageResponse {
+  status: 'success' | 'error';
+  userMessage?: ChatMessage;
+  assistantMessage?: ChatMessage;
+  error?: string;
+  pendingUserMessageId?: string;
+}
+
+export interface ChatRetryResponse {
+  status: 'success' | 'error' | 'already_answered';
+  assistantMessage?: ChatMessage;
+  lastMessage?: ChatMessage;
+  error?: string;
+  pendingUserMessageId?: string;
+}
+
+export interface CreateChatResponse {
+  chat: {
+    id: string;
+    title: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
 export interface WikiNode {
   id: string;
   title: string;

@@ -9,6 +9,10 @@ import type {
   LoginResponse,
   MeResponse,
   LogoutResponse,
+  ChatsResponse,
+  ChatDetailResponse,
+  ChatMessageResponse,
+  ChatRetryResponse,
 } from '@shared/api';
 
 const BASE = '/api';
@@ -46,4 +50,12 @@ export const api = {
   login: (body: LoginRequest) => post<LoginResponse>('/auth/login', body),
   me: () => get<MeResponse>('/auth/me'),
   logout: () => post<LogoutResponse>('/auth/logout', {}),
+  getChats: () => get<ChatsResponse>('/chats'),
+  createChat: (body?: { title?: string; firstMessage?: string }) =>
+    post<{ chat: { id: string; title: string; createdAt: string; updatedAt: string } }>('/chats', body || {}),
+  getChatDetail: (id: string) => get<ChatDetailResponse>(`/chats/${id}`),
+  sendMessage: (id: string, content: string) =>
+    post<ChatMessageResponse>(`/chats/${id}/messages`, { content }),
+  retryMessage: (id: string, pendingUserId: string) =>
+    post<ChatRetryResponse>(`/chats/${id}/retry`, { pendingUserId }),
 };

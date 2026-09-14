@@ -6,6 +6,8 @@ import ProposalPage from './pages/Proposal';
 import ProposalsList from './pages/ProposalsList';
 import Inbox from './pages/Inbox';
 import LoginPage from './pages/LoginPage';
+import ChatsListPage from './pages/ChatsListPage';
+import ChatPage from './pages/ChatPage';
 import { api } from './services/api';
 
 export default function App() {
@@ -50,6 +52,7 @@ export default function App() {
         <div className="nav-links">
           <Link to="/records" className="nav-link">유입 기록</Link>
           <Link to="/proposals" className="nav-link">제안 목록</Link>
+          <Link to="/chats" className="nav-link">대화방</Link>
         </div>
         <div className="nav-actions">
           {user ? (
@@ -70,6 +73,8 @@ export default function App() {
           <Route path="/proposal/:id" element={<ProposalPage />} />
           <Route path="/records" element={<Inbox />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/chats" element={<ChatsListPage />} />
+          <Route path="/chats/:id" element={<ChatPage />} />
         </Routes>
       </main>
     </>
