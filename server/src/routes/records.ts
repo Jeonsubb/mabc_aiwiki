@@ -131,62 +131,69 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
     let recordStatus: string;
     let errorMessage: string | undefined;
 
-    const createdNodes: Array<{ id: string; title: string }> = [];
     const createdProposals: Array<{ id: string; type: string; action: string; reason: string }> = [];
 
     if (solarResult.status === 'success') {
       recordStatus = '처리됨';
 
-      // 새 노드 + 버전 생성
-      for (const nodeDraft of solarResult.newNodes) {
-        if (!nodeDraft.title) continue;
-        const node = await db.wikiNode.create({
-          data: {
-            userId,
-            title: nodeDraft.title,
-            summary: nodeDraft.summary,
-            content: nodeDraft.content,
-            topics: nodeDraft.topics,
-            tags: nodeDraft.tags,
-            categories: nodeDraft.categories,
-            classificationState: nodeDraft.categories.length > 0 ? '후보N개' : '미정',
-            classificationCandidates: nodeDraft.categories.length > 0 ? nodeDraft.categories.join(',') : null,
-          },
-        });
-
-        await db.nodeVersion.create({
-          data: {
-            nodeId: node.id,
-            version: 1,
-            summary: nodeDraft.summary,
-            content: nodeDraft.content,
-            topics: nodeDraft.topics,
-            tags: nodeDraft.tags,
-            categories: nodeDraft.categories,
-            changedBy: 'agent',
-            changeType: '생성',
-            changeNote: 'Solar가 최초 생성함',
-          },
-        });
-
-        createdNodes.push({ id: node.id, title: node.title });
-
-        await db.recordToNode.create({
-          data: {
-            recordId: record.id,
-            nodeId: node.id,
-            nodeVersionId: null,
-            changeDescription: 'Solar가 원문을 기반으로 새 위키 노드 생성',
-          },
-        });
-      }
-
-      // 제안 + 근거 생성
+      // ── 새 위키 노드 후보는 확정 생성하지 않고, "새 위키 노드 생성 제안" Proposal로만 저장 ──
       let skillHash: string | null = null;
       try {
         skillHash = (await import('../solar.js')).computeSkillHash();
       } catch {}
 
+      for (const nodeDraft of solarResult.newNodes) {
+        if (!nodeDraft.title) continue;
+
+        // 새 위키 노드 생성 제안 Proposal
+        const newNodeProposal = await db.proposal.create({
+          data: {
+            userId,
+            type: '추가',
+            action: `새 위키 노드 생성 제안: ${nodeDraft.title}`,
+            reason: nodeDraft.summary
+              ? `Solar가 원문 기반으로 새 위키 노드 후보를 제안함. 요약: ${nodeDraft.summary}`
+              : 'Solar가 원문 기반으로 새 위키 노드 후보를 제안함.',
+            proposalHash: `${record.id}:추가:${nodeDraft.title}:${nodeDraft.summary}`,
+            evidenceSegmentIds: segmentIds,
+            relatedSegmentIds: segmentIds,
+            relatedRecordId: record.id,
+            baseNodeVersion: null,
+            skillHash,
+            hasSensitiveInfo: solarResult.sensitiveInfo.hasSensitiveInfo,
+            sensitiveInfoWarning: solarResult.sensitiveInfo.warning || undefined,
+            sensitiveInfoNodeIds: solarResult.sensitiveInfo.nodeIds || [],
+            status: '제안됨',
+            targetNodeId: undefined,
+            sourceNodeId: undefined,
+          },
+        });
+
+        // 신규 노드 초안 내용을 evidence로 남김
+        for (const segId of segmentIds) {
+          const seg = await db.conversationSegment.findUnique({ where: { id: segId } });
+          if (seg) {
+            await db.proposalEvidence.create({
+              data: {
+                proposalId: newNodeProposal.id,
+                segmentId: segId,
+                quote: seg.rawText,
+                originalStart: seg.rawStart,
+                originalEnd: seg.rawEnd,
+              },
+            });
+          }
+        }
+
+        createdProposals.push({
+          id: newNodeProposal.id,
+          type: newNodeProposal.type,
+          action: newNodeProposal.action,
+          reason: newNodeProposal.reason,
+        });
+      }
+
+      // 기존 제안 + 근거 생성
       for (const propDraft of solarResult.proposals) {
         if (!propDraft.action && !propDraft.reason) continue;
         const proposal = await db.proposal.create({
@@ -296,7 +303,6 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
         createdAt: record.createdAt,
       },
       segments: segmentIds.length,
-      nodes: createdNodes,
       proposals: createdProposals,
       interestCandidates: solarResult.interestCandidates.length,
       sensitiveInfo: solarResult.sensitiveInfo.hasSensitiveInfo,
