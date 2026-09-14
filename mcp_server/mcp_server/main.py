@@ -138,17 +138,96 @@ async def search_wiki(query: str, limit: int = 20) -> dict:
 
 # ------------------------------------------------------------------ 서버 실행
 
+import argparse
+import os
+import secrets
+
+from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+from mcp.server.transport_security import TransportSecuritySettings
+
+
+def _get_token() -> str:
+    token = os.environ.get("MABC_MCP_TOKEN", "")
+    return token.strip()
+
+
+class _BearerAuthMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: Starlette, expected_token: str) -> None:
+        super().__init__(app)
+        self._expected_token = expected_token
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.lower().startswith("bearer "):
+            return Response(status_code=401)
+        token = auth_header.split(maxsplit=1)[1] if len(auth_header.split(maxsplit=1)) > 1 else ""
+        if not secrets.compare_digest(token, self._expected_token):
+            return Response(status_code=401)
+        return await call_next(request)
+
+
 def main() -> None:
-    """stdio MCP 서버를 실행한다.
+    """MCP 서버를 실행한다.
 
-    uv run mabc-wiki-mcp 또는 uvx로 실행 가능.
+    기본: 기존 stdio 방식.
+    --http: Streamable HTTP 방식 (127.0.0.1:8766, /mcp).
     """
-    logger.info("mabc-wiki-mcp stdio 서버 시작 (store dir: %s)", store.STORE_DIR)
-    asyncio.run(_run_server())
+    parser = argparse.ArgumentParser(prog="mabc-wiki-mcp")
+    parser.add_argument(
+        "--http",
+        action="store_true",
+        help="Streamable HTTP 서버로 실행 (127.0.0.1:8766, path=/mcp)",
+    )
+    args = parser.parse_args()
+
+    if args.http:
+        logger.info(
+            "mabc-wiki-mcp Streamable HTTP 서버 시작 (host=127.0.0.1, port=8766, path=/mcp, store dir: %s)",
+            store.STORE_DIR,
+        )
+        asyncio.run(_run_http_server())
+    else:
+        logger.info("mabc-wiki-mcp stdio 서버 시작 (store dir: %s)", store.STORE_DIR)
+        asyncio.run(_run_stdio_server())
 
 
-async def _run_server() -> None:
+async def _run_stdio_server() -> None:
     await server.run_stdio_async()
+
+
+async def _run_http_server() -> None:
+    token = _get_token()
+    if not token:
+        logger.error(
+            "MABC_MCP_TOKEN이 설정되지 않아 Streamable HTTP 서버를 시작할 수 없습니다"
+        )
+        raise SystemExit(1)
+
+    transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "127.0.0.1:8766",
+            "kwon-macbookpro.taila8950e.ts.net",
+            "kwon-macbookpro.taila8950e.ts.net:443",
+        ],
+    )
+
+    starlette_app = server.streamable_http_app(
+        streamable_http_path="/mcp",
+        host="127.0.0.1",
+        transport_security=transport_security,
+    )
+    app = _BearerAuthMiddleware(starlette_app, token)
+
+    import uvicorn
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=8766, log_level=logging.INFO)
+    uvicorn_server = uvicorn.Server(config)
+    await uvicorn_server.serve()
 
 
 if __name__ == "__main__":
