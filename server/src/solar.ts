@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { createHash } from 'crypto';
 
-const client = new OpenAI({
+const client: OpenAI = new OpenAI({
   baseURL: process.env.SOLAR_BASE_URL || 'https://api.upstage.ai/v1',
   apiKey: process.env.SOLAR_API_KEY || '',
 });
