@@ -35,6 +35,6 @@ app.use(
 
 app.use('/api/auth', authRouter);
 app.use('/api/health', (_req, res) => res.json({ ok: true }));
-app.use('/api', requireAuth, apiRouter);
+app.use('/api', apiRouter);
 
 export { app };

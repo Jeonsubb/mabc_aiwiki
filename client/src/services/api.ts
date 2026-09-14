@@ -7,7 +7,7 @@ import type {
   RecordsResponse,
 } from '@shared/api';
 
-const BASE = '/api';
+const BASE = import.meta.env.VITE_BACKEND_URL || '/api';
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
