@@ -9,6 +9,9 @@ import type {
   LoginResponse,
   MeResponse,
   LogoutResponse,
+  McpCredentialsListResponse,
+  McpCredentialCreateResponse,
+  McpCredentialRevokeResponse,
 } from '@shared/api';
 
 const BASE = import.meta.env.VITE_BACKEND_URL || '/api';
@@ -38,6 +41,18 @@ async function post<T>(path: string, body: object): Promise<T> {
   return res.json();
 }
 
+async function del<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: '요청 실패' }));
+    throw new Error(err.error || '요청 실패');
+  }
+  return res.json();
+}
+
 export const api = {
   getNodes: () => get<NodesResponse>('/nodes'),
   getNode: (id: string) => get<NodeResponse>(`/nodes/${id}`),
@@ -49,4 +64,9 @@ export const api = {
   login: (body: LoginRequest) => post<LoginResponse>('/auth/login', body),
   me: () => get<MeResponse>('/auth/me'),
   logout: () => post<LogoutResponse>('/auth/logout', {}),
+  listCredentials: () => get<McpCredentialsListResponse>('/credentials'),
+  createCredential: (name: string) =>
+    post<McpCredentialCreateResponse>('/credentials', { name }),
+  revokeCredential: (id: string) =>
+    del<McpCredentialRevokeResponse>(`/credentials/${id}`),
 };

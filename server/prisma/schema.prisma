@@ -24,8 +24,22 @@ model User {
   relationships     NodeRelationship[] @relation("UserRelationships")
   memorySlots       UserMemorySlot[]
   interestTrackings InterestTracking[]
+  mcpCredentials    McpCredential[]
 
   @@map("users")
+}
+
+// ---------- 사용자별 MCP 연결 토큰 ----------
+model McpCredential {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String   @unique
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  @@map("mcp_credentials")
 }
 
 // ---------- 챗 에이전트 대화 ----------

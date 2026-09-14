@@ -6,9 +6,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { db, hashContent } from './db';
+import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
 
-async function submitConversationTool(args: Record<string, unknown>) {
+async function submitConversationTool(userId: string, args: Record<string, unknown>) {
   const session_id = args['session_id'] as string | undefined;
   const conversation_text = args['conversation_text'] as string | undefined;
   const context = (args['context'] as Record<string, unknown>) ?? {};
@@ -21,28 +22,10 @@ async function submitConversationTool(args: Record<string, unknown>) {
     };
   }
 
-  const mcpUserEmail = process.env.MCP_USER_EMAIL;
-  if (!mcpUserEmail) {
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'MCP_USER_EMAIL 환경변수가 설정되지 않음' }) },
-      ],
-    };
-  }
-
-  const user = await db.user.findUnique({ where: { email: mcpUserEmail } });
-  if (!user) {
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'MCP_USER_EMAIL에 해당하는 사용자가 없음' }) },
-      ],
-    };
-  }
-
   const contentHash = await hashContent(conversation_text);
 
   const existingRecord = await db.record.findUnique({
-    where: { user_content_hash_unique: { userId: user.id, contentHash } },
+    where: { user_content_hash_unique: { userId, contentHash } },
   });
   if (existingRecord) {
     return {
@@ -63,7 +46,7 @@ async function submitConversationTool(args: Record<string, unknown>) {
     const record = await db.$transaction(async (tx) => {
       const created = await tx.record.create({
         data: {
-          userId: user.id,
+          userId,
           conversationId: session_id,
           source: 'mcp',
           rawText: conversation_text,
@@ -99,7 +82,7 @@ async function submitConversationTool(args: Record<string, unknown>) {
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existingRecord = await db.record.findUnique({
-        where: { user_content_hash_unique: { userId: user.id, contentHash } },
+        where: { user_content_hash_unique: { userId, contentHash } },
       });
       if (existingRecord) {
         return {
@@ -127,29 +110,11 @@ async function submitConversationTool(args: Record<string, unknown>) {
   }
 }
 
-async function listConversationsTool(args: Record<string, unknown>) {
+async function listConversationsTool(userId: string, args: Record<string, unknown>) {
   const limit = Math.min(Number(args['limit']) || 50, 200);
 
-  const mcpUserEmail = process.env.MCP_USER_EMAIL;
-  if (!mcpUserEmail) {
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'MCP_USER_EMAIL 환경변수가 설정되지 않음' }) },
-      ],
-    };
-  }
-
-  const user = await db.user.findUnique({ where: { email: mcpUserEmail } });
-  if (!user) {
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'MCP_USER_EMAIL에 해당하는 사용자가 없음' }) },
-      ],
-    };
-  }
-
   const records = await db.record.findMany({
-    where: { userId: user.id },
+    where: { userId },
     orderBy: { createdAt: 'desc' },
     take: limit,
   });
@@ -199,12 +164,27 @@ export function createMcpRouter() {
 
   router.post('/', async (req, res) => {
     const authHeader = req.headers.authorization ?? '';
-    const mcpToken = process.env.MCP_INGEST_TOKEN ?? '';
-
-    if (!mcpToken || authHeader !== `Bearer ${mcpToken}`) {
+    if (!authHeader.startsWith('Bearer ')) {
       res.status(401).json({ error: '인증 필요' });
       return;
     }
+    const rawToken = authHeader.slice(7);
+    if (!rawToken) {
+      res.status(401).json({ error: '인증 필요' });
+      return;
+    }
+
+    const tokenHash = hashMcpToken(rawToken);
+    const credential = await db.mcpCredential.findFirst({
+      where: { tokenHash, revokedAt: null },
+      select: { userId: true },
+    });
+    if (!credential) {
+      res.status(401).json({ error: '인증 필요' });
+      return;
+    }
+
+    const userId = credential.userId;
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -224,10 +204,10 @@ export function createMcpRouter() {
         const args = request.params.arguments as Record<string, unknown>;
 
         if (name === 'submit_conversation') {
-          return submitConversationTool(args);
+          return submitConversationTool(userId, args);
         }
         if (name === 'list_conversations') {
-          return listConversationsTool(args);
+          return listConversationsTool(userId, args);
         }
 
         return {

@@ -6,6 +6,7 @@ import ProposalPage from './pages/Proposal';
 import ProposalsList from './pages/ProposalsList';
 import Inbox from './pages/Inbox';
 import LoginPage from './pages/LoginPage';
+import McpCredentials from './pages/McpCredentials';
 import { api } from './services/api';
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
       <div className="nav-bar">
         <Link to="/" className="nav-wordmark">MABC</Link>
         <div className="nav-links">
+          <Link to="/credentials" className="nav-link">MCP 연결</Link>
           <Link to="/records" className="nav-link">유입 기록</Link>
           <Link to="/proposals" className="nav-link">제안 목록</Link>
         </div>
@@ -69,6 +71,7 @@ export default function App() {
           <Route path="/proposals" element={<ProposalsList />} />
           <Route path="/proposal/:id" element={<ProposalPage />} />
           <Route path="/records" element={<Inbox />} />
+          <Route path="/credentials" element={<McpCredentials />} />
           <Route path="/login" element={<LoginPage />} />
         </Routes>
       </main>

@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth';
 import { requireAuth } from './middleware/auth';
 import { apiRouter } from './routes';
 import { createMcpRouter } from './mcp-server';
+import { mcpCredentialsRouter } from './routes/mcp-credentials';
 
 const PgStore = connectPgSimple(session);
 
@@ -16,7 +17,7 @@ app.use(
   cors({
     origin: 'https://mabc-aiwiki.vercel.app',
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'OPTIONS', 'DELETE'],
   }),
 );
 app.use(express.json());
@@ -44,6 +45,7 @@ app.use(
 app.use('/api/auth', authRouter);
 app.use('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', apiRouter);
+app.use('/api/credentials', mcpCredentialsRouter);
 app.use('/mcp', createMcpRouter());
 
 export { app };
