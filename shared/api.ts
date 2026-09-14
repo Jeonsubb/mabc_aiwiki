@@ -9,14 +9,14 @@ export interface WikiNode {
 
 export interface Proposal {
   id: string;
-  type: '추가' | '변경·분리' | '연결';
+  type: '추가' | '갱신' | '분리' | '병합' | '연결' | '보강' | '수정';
   targetNodeId?: string;
   sourceNodeId?: string;
   action: string;
   reason: string;
   evidence: string;
-  before: { summary: string; content: string };
-  after: { summary: string; content: string };
+  before?: { summary: string; content: string };
+  after?: { summary: string; content: string };
   status: '제안됨' | '승인됨' | '기각됨' | '반영됨';
   decisionAt?: string;
   decisionAction?: string;
