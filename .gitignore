@@ -1,0 +1,36 @@
+node_modules/
+dist/
+.env
+.DS_Store
+*.log
+.server/
+coverage/
+*.tsbuildinfo
+server/.docker-data/
+server/.env.bak
+
+# === Python / MCP ===
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.uv/
+uv.lock
+mcp_server/__pycache__/
+
+# === Node ===
+server/node_modules/
+client/node_modules/
+*.tsbuildinfo
+
+# === Build outputs ===
+server/dist/
+client/dist/
+client/.vite/
+
+# === Env / Data ===
+.env
+.env.*
+!.env.example
+server/.docker-data/
+demo.jpg

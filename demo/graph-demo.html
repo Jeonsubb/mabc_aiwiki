@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Wiki 그래프 데모</title>
+  <style>
+    :root {
+      --bg: #0e1217;
+      --panel: #161b22;
+      --card: #1c2229;
+      --border: #2a313a;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-light: #79c0ff;
+      --node-bg: #21262d;
+      --node-border: #30363d;
+      --node-hover: #388bfd22;
+      --edge: #3b434c;
+      --edge-active: #58a6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app {
+      display: flex;
+      gap: 16px;
+      height: 100vh;
+    }
+    #sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      overflow-y: auto;
+    }
+    #canvasWrap {
+      flex: 1;
+      position: relative;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+
+    #sidebar h2 {
+      font-size: 14px;
+      margin: 0 0 10px 0;
+      color: var(--text);
+    }
+    #sidebar .meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .node-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .node-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      margin-bottom: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .node-item:hover {
+      background: var(--node-hover);
+      border-color: var(--accent);
+    }
+    .node-item.active {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      color: #0b1320;
+    }
+    .node-item .sub {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .legend {
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    .legend-title {
+      color: var(--text);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid var(--node-border);
+      background: var(--node-bg);
+    }
+    .legend-edge {
+      width: 18px;
+      height: 2px;
+      background: var(--edge);
+    }
+    .legend-edge.active {
+      background: var(--edge-active);
+    }
+
+    #detailPanel {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      max-width: 360px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      display: none;
+      pointer-events: auto;
+    }
+    #detailPanel.visible { display: block; }
+    #detailPanel .title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    #detailPanel .type {
+      font-size: 11px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    #detailPanel .summary {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    #detailPanel .links {
+      font-size: 12px;
+      margin-top: 8px;
+      color: var(--muted);
+    }
+    #detailPanel .links .row {
+      color: var(--text);
+      margin-top: 2px;
+    }
+    #detailPanel .actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: #0b1320;
+      border-color: var(--accent);
+    }
+    .btn.danger {
+      color: var(--danger);
+      border-color: #fca5a5;
+    }
+    #overlayHint {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar">
+      <h2>위키 노드 (주제/아이디어)</h2>
+      <div class="meta">그래프는 위키 노드 간 관련 연결을 보여줍니다.</div>
+      <ul class="node-list" id="nodeList"></ul>
+      <div class="legend">
+        <div class="legend-title">범례</div>
+        <div class="legend-row"><span class="legend-dot"></span> 위키 노드</div>
+        <div class="legend-row"><span class="legend-edge"></span> 관련 연결</div>
+        <div class="legend-row"><span class="legend-edge active"></span> 선택 노드 연결</div>
+      </div>
+    </div>
+
+    <div id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="overlayHint">노드 드래그 이동 · 휠로 확대/축소</div>
+      <div id="detailPanel">
+        <div class="type" id="detailType">노드</div>
+        <div class="title" id="detailTitle">제목</div>
+        <div class="summary" id="detailSummary">요약</div>
+        <div class="links" id="detailLinks">연결: 없음</div>
+        <div class="actions">
+          <button class="btn primary" id="detailOpen">위키 보기</button>
+          <button class="btn danger" id="detailClose">닫기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- 데모용 노드/엣지 데이터 ----
+    // 실제 MVP에서는 위키 노드/관계 데이터에서 뽑아 렌더링합니다.
+    const graphData = {
+      nodes: [
+        { id: "n1", title: "블로그 기획", summary: "콘텐츠 방향, 발행 주기, 독자층 정리", color: "#58a6ff" },
+        { id: "n2", title: "콘텐츠 발행 실험", summary: "제목/썸네일/포맷 실험 기록", color: "#3fb950" },
+        { id: "n3", title: "아이디어 정리 방법", summary: "생각을 주제별로 나누는 기준", color: "#d29922" },
+        { id: "n4", title: "독자 반응 추적", summary: "어떤 글이 반응이 좋았는지 기록", color: "#f78166" },
+        { id: "n5", title: "주간 회고 루틴", summary: "매주 아이디어를 정리하는 습관", color: "#a371f7" },
+        { id: "n6", title: "개인 지식 저장소", summary: "흩어진 대화/아이디어를 모으는 공간", color: "#79c0ff" }
+      ],
+      edges: [
+        { from: "n1", to: "n2", weight: 3 },
+        { from: "n1", to: "n3", weight: 4 },
+        { from: "n2", to: "n4", weight: 3 },
+        { from: "n3", to: "n6", weight: 2 },
+        { from: "n5", to: "n1", weight: 2 },
+        { from: "n5", to: "n3", weight: 3 },
+        { from: "n6", to: "n1", weight: 3 },
+        { from: "n6", to: "n3", weight: 2 }
+      ]
+    };
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const wrap = document.getElementById("canvasWrap");
+    const nodeListEl = document.getElementById("nodeList");
+    const detailPanel = document.getElementById("detailPanel");
+    const detailType = document.getElementById("detailType");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailSummary = document.getElementById("detailSummary");
+    const detailLinks = document.getElementById("detailLinks");
+    const detailOpen = document.getElementById("detailOpen");
+    const detailClose = document.getElementById("detailClose");
+
+    let nodes = [];
+    let nodeMap = {};
+    let edges = [];
+    let selectedId = null;
+    let hoveredId = null;
+
+    let offsetX = 0;
+    let offsetY = 0;
+    let scale = 1;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragOffsetStartX = 0;
+    let dragOffsetStartY = 0;
+
+    const NODE_RADIUS = 26;
+    const MIN_SCALE = 0.4;
+    const MAX_SCALE = 2.5;
+
+    function init() {
+      resize();
+      buildGraph();
+      buildNodeList();
+      window.addEventListener("resize", resize);
+      canvas.addEventListener("mousedown", onMouseDown);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+      canvas.addEventListener("wheel", onWheel, { passive: false });
+      canvas.addEventListener("dblclick", onDblClick);
+      detailOpen.addEventListener("click", () => showDetail(selectedId, false));
+      detailClose.addEventListener("click", () => hideDetail());
+    }
+
+    function resize() {
+      const rect = wrap.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      render();
+    }
+
+    function buildGraph() {
+      nodes = graphData.nodes.map((n) => ({
+        id: n.id,
+        title: n.title,
+        summary: n.summary || "",
+        color: n.color || "#58a6ff",
+        x: (Math.random() - 0.5) * 400,
+        y: (Math.random() - 0.5) * 300,
+        vx: 0,
+        vy: 0
+      }));
+      nodes.forEach((n) => (nodeMap[n.id] = n));
+
+      edges = graphData.edges.map((e) => ({
+        from: nodeMap[e.from],
+        to: nodeMap[e.to],
+        weight: e.weight || 1
+      }));
+    }
+
+    function buildNodeList() {
+      nodeListEl.innerHTML = "";
+      nodes.forEach((n) => {
+        const li = document.createElement("li");
+        li.className = "node-item" + (n.id === selectedId ? " active" : "");
+        li.dataset.id = n.id;
+        li.innerHTML = `<div>${escapeHtml(n.title)}</div>
+          <span class="sub">${escapeHtml(n.summary || "요약 없음")}</span>`;
+        li.addEventListener("click", () => {
+          selectNode(n.id);
+          detailPanel.classList.add("visible");
+          showDetail(n.id, true);
+        });
+        nodeListEl.appendChild(li);
+      });
+    }
+
+    function selectNode(id) {
+      selectedId = id;
+      nodeListEl.querySelectorAll(".node-item").forEach((el) => {
+        el.classList.toggle("active", el.dataset.id === id);
+      });
+      render();
+    }
+
+    function showDetail(id, focus) {
+      const n = nodeMap[id];
+      if (!n) return;
+      detailType.textContent = "위키 노드";
+      detailTitle.textContent = n.title;
+      detailSummary.textContent = n.summary || "요약 없음";
+
+      const related = edges
+        .filter((e) => e.from.id === id || e.to.id === id)
+        .map((e) => (e.from.id === id ? e.to : e.from))
+        .map((r) => r.title)
+        .join(", ");
+      detailLinks.innerHTML = related
+        ? `연결: ${escapeHtml(related)}`
+        : "연결: 없음";
+
+      if (focus) {
+        const wrapRect = wrap.getBoundingClientRect();
+        const cx = n.x * scale + offsetX;
+        const cy = n.y * scale + offsetY;
+        if (cx < 0 || cx > wrapRect.width || cy < 0 || cy > wrapRect.height) {
+          offsetX = wrapRect.width / 2 - cx;
+          offsetY = wrapRect.height / 2 - cy;
+        }
+        render();
+      }
+    }
+
+    function hideDetail() {
+      detailPanel.classList.remove("visible");
+      selectedId = null;
+      nodeListEl.querySelectorAll(".node-item").forEach((el) => el.classList.remove("active"));
+      render();
+    }
+
+    function onMouseDown(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const p = screenToWorld(mx, my);
+      const hit = hitNode(p.x, p.y);
+      if (hit) {
+        selectNode(hit.id);
+        showDetail(hit.id, false);
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragOffsetStartX = offsetX;
+        dragOffsetStartY = offsetY;
+        canvas.style.cursor = "grabbing";
+      } else {
+        selectedId = null;
+        nodeListEl.querySelectorAll(".node-item").forEach((el) => el.classList.remove("active"));
+        hideDetail();
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragOffsetStartX = offsetX;
+        dragOffsetStartY = offsetY;
+      }
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging) return;
+      offsetX = dragOffsetStartX + (e.clientX - dragStartX);
+      offsetY = dragOffsetStartY + (e.clientY - dragStartY);
+      render();
+    }
+
+    function onMouseUp(e) {
+      if (isDragging) {
+        isDragging = false;
+        canvas.style.cursor = "grab";
+      }
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const worldBefore = screenToWorld(mx, my);
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+      scale = newScale;
+      const worldAfter = screenToWorld(mx, my);
+      offsetX += worldAfter.x - worldBefore.x;
+      offsetY += worldAfter.y - worldBefore.y;
+      render();
+    }
+
+    function onDblClick(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const p = screenToWorld(mx, my);
+      const hit = hitNode(p.x, p.y);
+      if (hit) {
+        selectNode(hit.id);
+        showDetail(hit.id, true);
+      }
+    }
+
+    function screenToWorld(sx, sy) {
+      return {
+        x: (sx - offsetX) / scale,
+        y: (sy - offsetY) / scale
+      };
+    }
+
+    function worldToScreen(wx, wy) {
+      return {
+        x: wx * scale + offsetX,
+        y: wy * scale + offsetY
+      };
+    }
+
+    function hitNode(x, y) {
+      for (const n of nodes) {
+        const s = worldToScreen(n.x, n.y);
+        const dx = x - s.x;
+        const dy = y - s.y;
+        if (dx * dx + dy * dy <= (NODE_RADIUS + 6) * (NODE_RADIUS + 6)) {
+          return n;
+        }
+      }
+      return null;
+    }
+
+    function render() {
+      const rect = wrap.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // 배경 격자
+      drawGrid(rect);
+
+      // 엣지
+      edges.forEach((e) => {
+        const active = selectedId && (e.from.id === selectedId || e.to.id === selectedId);
+        const from = worldToScreen(e.from.x, e.from.y);
+        const to = worldToScreen(e.to.x, e.to.y);
+        drawEdge(from, to, active);
+      });
+
+      // 노드
+      nodes.forEach((n) => {
+        const s = worldToScreen(n.x, n.y);
+        const picked = n.id === hoveredId;
+        const selected = n.id === selectedId;
+        drawNode(s.x, s.y, n.title, n.color, picked || selected);
+      });
+    }
+
+    function drawGrid(rect) {
+      ctx.save();
+      ctx.strokeStyle = "#1f2733";
+      ctx.lineWidth = 1;
+      const step = 40;
+      const x0 = -offsetX % step;
+      const y0 = -offsetY % step;
+      for (let x = x0; x < rect.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, rect.height);
+        ctx.stroke();
+      }
+      for (let y = y0; y < rect.height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(rect.width, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawEdge(from, to, active) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) return;
+
+      const nx = -dy / len;
+      const ny = dx / len;
+      const r1 = NODE_RADIUS + 4;
+      const r2 = NODE_RADIUS + 4;
+      const sx = from.x + nx * r1;
+      const sy = from.y + ny * r1;
+      const ex = to.x - nx * r2;
+      const ey = to.y - ny * r2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = active ? "#58a6ff" : "#3b434c";
+      ctx.lineWidth = active ? 2.4 : 1.6;
+      ctx.stroke();
+
+      const mx = (sx + ex) / 2;
+      const my = (sy + ey) / 2;
+      ctx.fillStyle = "#ffffff12";
+      ctx.beginPath();
+      ctx.arc(mx, my, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawNode(x, y, title, color, highlight) {
+      ctx.save();
+      const radius = highlight ? NODE_RADIUS + 4 : NODE_RADIUS;
+
+      // 그림자로 깊이
+      ctx.beginPath();
+      ctx.arc(x, y + 2, radius, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fill();
+
+      // 본체
+      const grad = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, radius + 4);
+      grad.addColorStop(0, highlight ? "#4a7ad9" : "#2c3440");
+      grad.addColorStop(1, highlight ? "#2b4a86" : "#1b2129");
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.strokeStyle = highlight ? "#79c0ff" : "#3b434d";
+      ctx.lineWidth = highlight ? 2.4 : 1.5;
+      ctx.stroke();
+
+      // 색상 마크
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      // 텍스트
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "600 12px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const display = title.length > 10 ? title.slice(0, 9) + "…" : title;
+      ctx.fillText(display, x, y + 1);
+
+      ctx.restore();
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    init();
+  </script>
+</body>
+</html>
