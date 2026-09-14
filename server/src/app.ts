@@ -6,6 +6,7 @@ import { pool } from './db-pool';
 import { authRouter } from './routes/auth';
 import { requireAuth } from './middleware/auth';
 import { apiRouter } from './routes';
+import { createMcpRouter } from './mcp-server';
 
 const PgStore = connectPgSimple(session);
 
@@ -43,5 +44,6 @@ app.use(
 app.use('/api/auth', authRouter);
 app.use('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api', apiRouter);
+app.use('/mcp', createMcpRouter());
 
 export { app };
