@@ -10,7 +10,14 @@ import { apiRouter } from './routes';
 const PgStore = connectPgSimple(session);
 
 const app = express();
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(
+  cors({
+    origin: 'https://mabc-aiwiki.vercel.app',
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+  }),
+);
 app.use(express.json());
 
 app.use(
@@ -26,8 +33,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
   })

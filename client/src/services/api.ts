@@ -14,7 +14,9 @@ import type {
 const BASE = import.meta.env.VITE_BACKEND_URL || '/api';
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+  const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: '요청 실패' }));
     throw new Error(err.error || '요청 실패');
@@ -27,6 +29,7 @@ async function post<T>(path: string, body: object): Promise<T> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    credentials: 'include',
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: '요청 실패' }));

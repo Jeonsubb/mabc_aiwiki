@@ -1,10 +1,13 @@
 import OpenAI from 'openai';
 import { createHash } from 'crypto';
 
-const client = new OpenAI({
-  baseURL: process.env.SOLAR_BASE_URL || 'https://api.upstage.ai/v1',
-  apiKey: process.env.SOLAR_API_KEY || '',
-});
+const apiKey = process.env.SOLAR_API_KEY || '';
+const client = apiKey
+  ? new OpenAI({
+      baseURL: process.env.SOLAR_BASE_URL || 'https://api.upstage.ai/v1',
+      apiKey,
+    })
+  : null;
 
 export const SOLAR_MODEL = process.env.SOLAR_MODEL || 'solar-pro4';
 
@@ -89,6 +92,18 @@ export async function generateFromRecord(
   relatedSegmentIds: string[],
   relatedRecordId: string,
 ): Promise<SolarResult> {
+  // API 키가 없으면 mock 응답 반환 (로컬 테스트용)
+  if (!client) {
+    return {
+      status: 'no_result',
+      newNodes: [],
+      proposals: [],
+      interestCandidates: [],
+      sensitiveInfo: { hasSensitiveInfo: false },
+      error: { kind: 'no_result', message: 'Solar API 키가 설정되지 않았습니다. 로컬 테스트용 mock 응답입니다.' },
+    };
+  }
+
   const skillPrompt = loadSkillPrompt();
   const existingNodesText = existingNodes.length > 0
     ? existingNodes.map((n) => `## 기존 노드 ${n.id}\n제목: ${n.title}\n한 줄 요약: ${n.summary}\n내용: ${n.content}\n태그: ${n.tags.join(', ')}\n분류: ${n.categories.join(', ')}`).join('\n\n')
