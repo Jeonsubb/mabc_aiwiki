@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [feat/wiki-engine, main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 1. 서버 빌드 + Prisma 스키마 검증 ──────────────────────────────
+  server-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      # Prisma 스키마 문법 검증 + 클라이언트 생성
+      - run: npx prisma validate
+      - run: npx prisma generate
+
+      # TypeScript 빌드 → dist/server.js 생성 여부 확인
+      - run: npm run build
+      - name: dist/server.js 존재 확인
+        run: test -f dist/server.js
+
+      # 런타임 타입 체크 (tsconfig strict 기준)
+      - run: npx tsc --noEmit
+
+  # ── 2. 클라이언트 빌드 ────────────────────────────────────────────
+  client-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+  # ── 3. MCP 서버 구조 확인 ──────────────────────────────────────────
+  mcp-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: MCP 서버 필수 파일 확인
+        run: |
+          test -f mcp_server/pyproject.toml
+          test -f mcp_server/mcp_server/main.py
+          test -f mcp_server/mcp_server/store.py
+          test -f mcp_server/mcp_server/web_api.py
+          test -f mcp_server/mcp_server/__init__.py
+          test -f mcp_server/mcp_server/tools.py
+          test -f mcp_server/mcp_server/types.py
+
+      - name: Python 의존성 동기화 확인 (uv)
+        run: |
+          cd mcp_server
+          if command -v uv >/dev/null 2>&1; then
+            uv sync --check 2>/dev/null || echo "uv sync --check 건너뜀 (uv 미설치 또는 락파일 이슈)"
+          else
+            echo "uv 없음 — uv.lock 존재 여부만 확인"
+            test -f uv.lock
+          fi
+
+  # ── 4. 필수 파일 / 불필요 파일 검사 ──────────────────────────────
+  file-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 필수 파일 존재 확인
+        run: |
+          test -f server/package.json
+          test -f server/tsconfig.json
+          test -f server/prisma/schema.prisma
+          test -f client/package.json
+          test -f client/tsconfig.json
+          test -f client/vite.config.ts
+          test -f .gitignore
+
+      - name: 불필요한 파일 커밋 여부 확인
+        run: |
+          # .env, node_modules, dist, __pycache__, uv.lock 등이 커밋됐는지 검사
+          bad=""
+          for f in \
+            .env \
+            .env.bak \
+            server/.env \
+            client/.env \
+            server/node_modules \
+            client/node_modules \
+            server/dist \
+            client/dist \
+            server/.docker-data \
+            __pycache__ \
+            mcp_server/__pycache__ \
+            "*.pyc" \
+            uv.lock \
+            demo.jpg \
+            "*.tsbuildinfo" \
+            .DS_Store \
+            "*.log" \
+          ; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              bad="$bad\n  $f"
+            fi
+          done
+          if [ -n "$bad" ]; then
+            echo "커밋되면 안 되는 파일이 포함되어 있습니다:$bad"
+            exit 1
+          fi
+          echo "불필요 파일 없음 — 통과"

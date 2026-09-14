@@ -1,0 +1,82 @@
+[
+  {
+    "name": "docs",
+    "path": "mcp_server/docs",
+    "sha": "56e50c1ac540bb5a21d0ba2b080269e242b5e0e3",
+    "size": 0,
+    "url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/docs?ref=mcp",
+    "html_url": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/docs",
+    "git_url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/56e50c1ac540bb5a21d0ba2b080269e242b5e0e3",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/docs?ref=mcp",
+      "git": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/56e50c1ac540bb5a21d0ba2b080269e242b5e0e3",
+      "html": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/docs"
+    }
+  },
+  {
+    "name": "mcp_server",
+    "path": "mcp_server/mcp_server",
+    "sha": "1d8f15ece3158840c1168794d616292d30e3a014",
+    "size": 0,
+    "url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/mcp_server?ref=mcp",
+    "html_url": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/mcp_server",
+    "git_url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/1d8f15ece3158840c1168794d616292d30e3a014",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/mcp_server?ref=mcp",
+      "git": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/1d8f15ece3158840c1168794d616292d30e3a014",
+      "html": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/mcp_server"
+    }
+  },
+  {
+    "name": "pyproject.toml",
+    "path": "mcp_server/pyproject.toml",
+    "sha": "83495001491ba74a526476e2c5ec6502702b76a1",
+    "size": 470,
+    "url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/pyproject.toml?ref=mcp",
+    "html_url": "https://github.com/Qkdgodchl/mabc_aiwiki/blob/mcp/mcp_server/pyproject.toml",
+    "git_url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/blobs/83495001491ba74a526476e2c5ec6502702b76a1",
+    "download_url": "https://raw.githubusercontent.com/Qkdgodchl/mabc_aiwiki/mcp/mcp_server/pyproject.toml",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/pyproject.toml?ref=mcp",
+      "git": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/blobs/83495001491ba74a526476e2c5ec6502702b76a1",
+      "html": "https://github.com/Qkdgodchl/mabc_aiwiki/blob/mcp/mcp_server/pyproject.toml"
+    }
+  },
+  {
+    "name": "tests",
+    "path": "mcp_server/tests",
+    "sha": "509f9c99695457e2bd52e74c4f7c8bb2ee35dade",
+    "size": 0,
+    "url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/tests?ref=mcp",
+    "html_url": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/tests",
+    "git_url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/509f9c99695457e2bd52e74c4f7c8bb2ee35dade",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/tests?ref=mcp",
+      "git": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/trees/509f9c99695457e2bd52e74c4f7c8bb2ee35dade",
+      "html": "https://github.com/Qkdgodchl/mabc_aiwiki/tree/mcp/mcp_server/tests"
+    }
+  },
+  {
+    "name": "uv.lock",
+    "path": "mcp_server/uv.lock",
+    "sha": "9ee5226fc45d14f54d1e7712cc136deb9ed25973",
+    "size": 186855,
+    "url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/uv.lock?ref=mcp",
+    "html_url": "https://github.com/Qkdgodchl/mabc_aiwiki/blob/mcp/mcp_server/uv.lock",
+    "git_url": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/blobs/9ee5226fc45d14f54d1e7712cc136deb9ed25973",
+    "download_url": "https://raw.githubusercontent.com/Qkdgodchl/mabc_aiwiki/mcp/mcp_server/uv.lock",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/contents/mcp_server/uv.lock?ref=mcp",
+      "git": "https://api.github.com/repos/Qkdgodchl/mabc_aiwiki/git/blobs/9ee5226fc45d14f54d1e7712cc136deb9ed25973",
+      "html": "https://github.com/Qkdgodchl/mabc_aiwiki/blob/mcp/mcp_server/uv.lock"
+    }
+  }
+]

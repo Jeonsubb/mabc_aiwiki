@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Wiki 제안 데모</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-light: #dbeafe;
+      --danger: #b91c1c;
+      --danger-light: #fde2e2;
+      --good: #15803d;
+      --good-light: #dcfce1;
+      --warn: #b45309;
+      --warn-light: #fef3c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .status-badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid #bfdbfe;
+    }
+    .status-badge.done {
+      background: var(--good-light);
+      color: var(--good);
+      border-color: #bbf7d0;
+    }
+    .main {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      font-size: 16px;
+      margin: 0 0 10px 0;
+      color: var(--text);
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .context-box {
+      background: #f3f4f6;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .proposal-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .proposal-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #ffffff;
+      transition: border-color 0.15s ease;
+    }
+    .proposal-card.is-done {
+      border-color: #bbf7d0;
+      background: #fafdfa;
+    }
+    .proposal-card.is-rejected {
+      border-color: #fecaca;
+      background: #fdf8f7;
+    }
+    .proposal-card.rejected {
+      opacity: 0.6;
+    }
+    .proposal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .proposal-type {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: var(--accent-light);
+      color: var(--accent);
+    }
+    .proposal-type.add { background: var(--good-light); color: var(--good); }
+    .proposal-type.change { background: var(--warn-light); color: var(--warn); }
+    .proposal-type.separate { background: var(--danger-light); color: var(--danger); }
+    .proposal-type.link { background: #e0f2fe; color: #0369a1; }
+    .proposal-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 6px 0 4px 0;
+    }
+    .proposal-summary {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .proposal-reason {
+      font-size: 12px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: var(--muted);
+    }
+    .diff {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .diff-head {
+      display: flex;
+      background: #f3f4f6;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .diff-head span {
+      padding: 6px 10px;
+      border-right: 1px solid var(--border);
+    }
+    .diff-head span:last-child { border-right: none; }
+    .diff-body {
+      display: flex;
+      min-height: 120px;
+    }
+    .diff-col {
+      flex: 1;
+      padding: 10px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      border-right: 1px solid var(--border);
+      background: #fafbfc;
+    }
+    .diff-col:last-child {
+      border-right: none;
+      background: #fbfefc;
+    }
+    .diff-col .removed { color: var(--danger); text-decoration: line-through; }
+    .diff-col .added { color: var(--good); font-weight: 600; }
+    .proposal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .btn.accept {
+      background: var(--good);
+      color: #fff;
+      border-color: var(--good);
+    }
+    .btn.accept:hover { background: #166534; }
+    .btn.reject {
+      background: transparent;
+      color: var(--danger);
+      border-color: #fca5a5;
+    }
+    .btn.reject:hover { background: var(--danger-light); }
+    .feedback-note {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .accept-ok { color: var(--good); }
+    .reject-ok { color: var(--danger); }
+    .result-section {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .result-summary {
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .result-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .result-item:last-child { border-bottom: none; }
+    .result-item .label {
+      min-width: 80px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+    .result-item .value { flex: 1; }
+    .log {
+      font-size: 13px;
+    }
+    .log-line {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-line:last-child { border-bottom: none; }
+    .log-time {
+      color: var(--muted);
+      font-size: 12px;
+      margin-right: 8px;
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 12px 0;
+      text-align: center;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <header>
+      <div>
+        <strong>AI Wiki 제안 확인</strong>
+      </div>
+      <div class="status-badge" id="statusBadge">요청: 대기 중</div>
+    </header>
+
+    <section>
+      <h2>1. 사용자가 저장 요청한 대화 맥락</h2>
+      <div class="context-box" id="contextBox">
+        사용자가 지정한 대화 구간과 맥락을 여기에 표시합니다.<br>
+        예: "~/프로젝트 아이디어 정리" 스킬 대화 중 2026-09-11 12:20~12:27 구간, 주제: 블로그 기획, 콘텐츠 방향
+      </div>
+      <div class="hint">
+        MVP에서는 대화 구간 + 맥락이 MCP 도구로 전달되고, Solar + ai-wiki 스킬로 제안이 생성됩니다.
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 위키 생성/변경 제안</h2>
+      <div class="proposal-list" id="proposalList">
+        <!-- 제안 카드는 JS로 렌더 -->
+      </div>
+    </section>
+
+    <section>
+      <h2>3. 반영 결과</h2>
+      <div class="result-section" id="resultSection">
+        <div class="empty">아직 반영 결과가 없습니다.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. 결정 이력</h2>
+      <div class="log" id="logList">
+        <div class="empty">결정 이력이 없습니다.</div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---- 데모용 초기 데이터 ----
+    // 실제 MVP에서는 MCP 도구 응답을 백엔드가 정제해서 전달하게 됩니다.
+    const initialProposals = [
+      {
+        id: "p1",
+        type: "change",
+        title: "기존 노드 보강: 블로그 기획",
+        summary: "사용자가 말한 콘텐츠 방향, 발행 주기, 타겟 독자 관점을 기존 위키 노드에 추가하면 좋겠습니다.",
+        reason: "이번 대화 구간에서 기존 '블로그 기획' 노드에 들어갈 만한 구체적 방향이 등장했습니다.",
+        before: "블로그 기획\n- 아직 구체화된 방향이 적음\n- 독자층은 미정",
+        after: "블로그 기획\n- 콘텐츠 방향: 아이디어 정리 + 실무 회고 중심\n- 발행 주기: 주 1회 목표\n- 독자층: 개인 지식 정리 관심 사용자",
+        accepted: null,
+        rejected: null,
+        applied: false
+      },
+      {
+        id: "p2",
+        type: "add",
+        title: "새 노드 생성: 콘텐츠 발행 실험",
+        summary: "발행 형식 실험, 썸네일, 제목 실험에 대한 내용이 있어 별도 노드로 만드는 제안입니다.",
+        reason: "이번 대화에서 기존 기획 노드와 별개로 '실험' 관점이 눈에 띄었습니다.",
+        before: "",
+        after: "콘텐츠 발행 실험\n- 제목/썸네일/포맷 실험 기록\n- 어떤 형식이 반응이 좋았는지 추적",
+        accepted: null,
+        rejected: null,
+        applied: false
+      },
+      {
+        id: "p3",
+        type: "separate",
+        title: "분리 제안: 블로그 기획 vs 콘텐츠 발행 실험",
+        summary: "하나의 노드로 묶기보다, 기획과 실험을 분리하는 게 나중에 보기 편할 수 있습니다.",
+        reason: "기획은 방향/정책 성향, 실험은 시도 결과 추적 성향이라 성격이 조금 다릅니다.",
+        before: "블로그 기획 (통합 상태)",
+        after: "블로그 기획\n- 기획 중심\n\n콘텐츠 발행 실험\n- 실험 결과 중심",
+        accepted: null,
+        rejected: null,
+        applied: false
+      },
+      {
+        id: "p4",
+        type: "link",
+        title: "관계 제안: 블로그 기획 ↔ 콘텐츠 발행 실험",
+        summary: "두 노드가 나중에 서로 참고 관계로 연결되면, '왜 이 실험을 했는지' 추적이 쉬워집니다.",
+        reason: "실험의 목적이 기획 방향 검증을 위한 것일 가능성이 있습니다.",
+        before: "연결 없음",
+        after: "블로그 기획 → 콘텐츠 발행 실험 (상호 참조)",
+        accepted: null,
+        rejected: null,
+        applied: false
+      }
+    ];
+
+    let proposals = JSON.parse(JSON.stringify(initialProposals));
+    let resultItems = [];
+    let logLines = [];
+
+    const proposalListEl = document.getElementById("proposalList");
+    const resultSectionEl = document.getElementById("resultSection");
+    const logListEl = document.getElementById("logList");
+    const statusBadgeEl = document.getElementById("statusBadge");
+
+    function nowStr() {
+      const d = new Date();
+      return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function renderProposals() {
+      proposalListEl.innerHTML = "";
+      if (proposals.length === 0) {
+        proposalListEl.innerHTML = '<div class="empty">표시할 제안이 없습니다.</div>';
+        return;
+      }
+
+      proposals.forEach((p) => {
+        const card = document.createElement("div");
+        card.className = "proposal-card";
+        if (p.accepted !== null) card.classList.add("is-done");
+        if (p.rejected !== null) card.classList.add("is-rejected", "rejected");
+
+        const typeLabel = p.type.toUpperCase();
+
+        const diffBeforeLines = p.before
+          ? p.before.split("\n").map((l) => `<div class="line">${escapeHtml(l)}</div>`).join("")
+          : [escapeHtml("(현재 내용 없음)")];
+        const diffAfterLines = p.after
+          ? p.after.split("\n").map((l) => {
+              if (p.before) {
+                const removed = p.before.split("\n").filter((x) => x !== l);
+                // 단순 데모용 강조: 새 줄은 added 처리
+                return `<div class="added">${escapeHtml(l)}</div>`;
+              }
+              return `<div>${escapeHtml(l)}</div>`;
+            }).join("")
+          : [escapeHtml("(변경 내용 없음)")];
+
+        card.innerHTML = `
+          <div class="proposal-header">
+            <div>
+              <div class="proposal-type ${p.type}">${typeLabel}</div>
+              <div class="proposal-title">${escapeHtml(p.title)}</div>
+              <div class="proposal-summary">${escapeHtml(p.summary)}</div>
+            </div>
+            <div class="feedback-note">
+              ${p.accepted !== null ? `<span class="accept-ok">수락됨</span>` : ""}
+              ${p.rejected !== null ? `<span class="reject-ok">기각됨</span>` : ""}
+              ${p.accepted === null && p.rejected === null ? "대기 중" : ""}
+            </div>
+          </div>
+          <div class="proposal-reason">
+            <strong>근거:</strong> ${escapeHtml(p.reason)}
+          </div>
+          <div class="diff">
+            <div class="diff-head">
+              <span>변경 전</span>
+              <span>변경 후</span>
+            </div>
+            <div class="diff-body">
+              <div class="diff-col">${diffBeforeLines}</div>
+              <div class="diff-col">${diffAfterLines}</div>
+            </div>
+          </div>
+          <div class="proposal-actions">
+            <button class="btn accept" data-id="${p.id}" ${p.accepted !== null || p.rejected !== null ? "disabled" : ""}>수락</button>
+            <button class="btn reject" data-id="${p.id}" ${p.accepted !== null || p.rejected !== null ? "disabled" : ""}>기각</button>
+          </div>
+        `;
+
+        proposalListEl.appendChild(card);
+      });
+
+      proposalListEl.querySelectorAll(".btn.accept").forEach((btn) => {
+        btn.addEventListener("click", () => acceptProposal(btn.dataset.id));
+      });
+      proposalListEl.querySelectorAll(".btn.reject").forEach((btn) => {
+        btn.addEventListener("click", () => rejectProposal(btn.dataset.id));
+      });
+    }
+
+    function acceptProposal(id) {
+      const p = proposals.find((x) => x.id === id);
+      if (!p || p.accepted !== null || p.rejected !== null) return;
+
+      p.accepted = nowStr();
+      p.applied = true;
+
+      resultItems.push({
+        id: p.id,
+        type: p.type,
+        title: p.title,
+        decision: "수락",
+        time: p.accepted,
+        applied: true
+      });
+
+      logLines.push({
+        id: p.id,
+        time: p.accepted,
+        text: `제안 "${p.title}" 수락 → 위키 반영 대기/반영 완료`
+      });
+
+      updateStatus();
+      renderProposals();
+      renderResult();
+      renderLog();
+    }
+
+    function rejectProposal(id) {
+      const p = proposals.find((x) => x.id === id);
+      if (!p || p.accepted !== null || p.rejected !== null) return;
+
+      p.rejected = nowStr();
+      p.applied = false;
+
+      resultItems.push({
+        id: p.id,
+        type: p.type,
+        title: p.title,
+        decision: "기각",
+        time: p.rejected,
+        applied: false
+      });
+
+      logLines.push({
+        id: p.id,
+        time: p.rejected,
+        text: `제안 "${p.title}" 기각 → 반영되지 않음`
+      });
+
+      updateStatus();
+      renderProposals();
+      renderResult();
+      renderLog();
+    }
+
+    function updateStatus() {
+      const pending = proposals.filter((p) => p.accepted === null && p.rejected === null).length;
+      const done = proposals.filter((p) => p.accepted !== null).length;
+      const rejected = proposals.filter((p) => p.rejected !== null).length;
+
+      if (pending === 0 && done > 0) {
+        statusBadgeEl.textContent = "요청: 위키 반영 완료";
+        statusBadgeEl.className = "status-badge done";
+      } else if (pending === 0 && rejected > 0) {
+        statusBadgeEl.textContent = "요청: 일부 기각됨";
+        statusBadgeEl.className = "status-badge";
+      } else {
+        statusBadgeEl.textContent = `요청: ${pending}건 대기 중`;
+        statusBadgeEl.className = "status-badge";
+      }
+    }
+
+    function renderResult() {
+      if (resultItems.length === 0) {
+        resultSectionEl.innerHTML = '<div class="empty">아직 반영 결과가 없습니다.</div>';
+        return;
+      }
+
+      resultSectionEl.innerHTML = `
+        <div class="result-summary">
+          총 ${resultItems.length}건 중 수락 ${resultItems.filter((r) => r.decision === "수락").length}건, 기각 ${resultItems.filter((r) => r.decision === "기각").length}건
+        </div>
+        ${resultItems.map((r) => `
+          <div class="result-item">
+            <div class="label">${r.decision}</div>
+            <div class="value">
+              [${r.type}] ${escapeHtml(r.title)}<br>
+              <span class="meta">시간: ${r.time}</span>
+            </div>
+          </div>
+        `).join("")}
+      `;
+    }
+
+    function renderLog() {
+      if (logLines.length === 0) {
+        logListEl.innerHTML = '<div class="empty">결정 이력이 없습니다.</div>';
+        return;
+      }
+
+      logListEl.innerHTML = logLines.map((l) => `
+        <div class="log-line">
+          <span class="log-time">${l.time}</span>
+          ${escapeHtml(l.text)}
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // 초기 렌더
+    renderProposals();
+    renderResult();
+    renderLog();
+  </script>
+</body>
+</html>
