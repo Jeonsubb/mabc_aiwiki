@@ -5,6 +5,10 @@ import type {
   ProposalResponse,
   DecideRequest,
   RecordsResponse,
+  LoginRequest,
+  LoginResponse,
+  MeResponse,
+  LogoutResponse,
 } from '@shared/api';
 
 const BASE = import.meta.env.VITE_BACKEND_URL || '/api';
@@ -39,4 +43,7 @@ export const api = {
   getRecords: () => get<RecordsResponse>('/records'),
   decideProposal: (id: string, body: DecideRequest) =>
     post<ProposalResponse>(`/proposals/${id}/decide`, body),
+  login: (body: LoginRequest) => post<LoginResponse>('/auth/login', body),
+  me: () => get<MeResponse>('/auth/me'),
+  logout: () => post<LogoutResponse>('/auth/logout', {}),
 };
