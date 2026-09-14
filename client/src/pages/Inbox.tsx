@@ -7,18 +7,22 @@ function statusLabel(status: string) {
   if (status === '보관됨') return <span className="badge badge-blue">보관됨</span>;
   if (status === '후보생성중') return <span className="badge badge-warm">후보 생성 중</span>;
   if (status === '제안됨') return <span className="badge badge-green">제안됨</span>;
+  if (status === '처리됨') return <span className="badge badge-success">처리됨</span>;
+  if (status === '실패') return <span className="badge badge-error">실패</span>;
+  if (status === '처리중') return <span className="badge badge-warm">처리 중</span>;
   return <span className="badge">{status}</span>;
 }
 
 export default function Inbox() {
   const [records, setRecords] = useState<RecordsResponse['records']>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .getRecords()
       .then((res) => setRecords(res.records))
-      .catch(() => setRecords([]))
+      .catch((err) => setError(err instanceof Error ? err.message : '기록 불러오기 실패'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -35,7 +39,11 @@ export default function Inbox() {
         저장 경로: /records · MCP로 들어온 대화 구간이 쌓입니다.
       </p>
 
-      {records.length === 0 ? (
+      {error ? (
+        <div className="card">
+          <p className="record-error">오류: {error}</p>
+        </div>
+      ) : records.length === 0 ? (
         <div className="card">
           <p>아직 MCP로 들어온 대화 기록이 없어요.</p>
           <p className="hint">
@@ -51,9 +59,10 @@ export default function Inbox() {
                 <p className="record-session">세션: {r.session_id}</p>
                 <p className="record-text">{r.conversation_text}</p>
               </div>
-              <p className="record-meta">
-                수신: {new Date(r.stored_at).toLocaleString()}
-              </p>
+              <div className="inbox-meta">
+                <p className="record-stored">저장: {new Date(r.stored_at).toLocaleString()}</p>
+                <p className="record-status">{statusLabel(r.status)}</p>
+              </div>
             </div>
           </div>
         ))

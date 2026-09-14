@@ -91,6 +91,7 @@ export interface RecordsResponse {
     stored_at: string;
     conversation_text: string;
     context: Record<string, unknown>;
+    status: string;
   }>;
 }
 

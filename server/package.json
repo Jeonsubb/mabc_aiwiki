@@ -12,6 +12,7 @@
     "@prisma/client": "^6.0.0",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "express-session": "^1.19.0",
     "openai": "^7.15.0",

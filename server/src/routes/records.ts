@@ -1,48 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { db, hashPassword, hashContent } from '../db';
+import { db, hashContent } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { generateFromRecord, type SolarResult } from '../solar';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
 
 export const recordsRouter = Router();
 
 function getUserId(req: Request): string {
   return (req as any).userId as string;
-}
-
-// ── MCP conversations.json 읽기 ──────────────────────────────────
-function conversationsPath(): string {
-  const env = process.env.MABC_MCP_STORE;
-  if (env) {
-    return path.join(env, 'conversations.json');
-  }
-  return path.join(os.homedir(), '.mabc-mcp-store', 'conversations.json');
-}
-
-function readConversations(): Array<{
-  id: string;
-  session_id: string;
-  stored_at: string;
-  conversation_text: string;
-  context: Record<string, unknown>;
-}> {
-  const p = conversationsPath();
-  try {
-    const raw = fs.readFileSync(p, 'utf-8');
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data)) return [];
-    return data as Array<{
-      id: string;
-      session_id: string;
-      stored_at: string;
-      conversation_text: string;
-      context: Record<string, unknown>;
-    }>;
-  } catch {
-    return [];
-  }
 }
 
 // 원문 → 세그먼트 분할 (개행 기준)
@@ -59,10 +23,33 @@ function splitIntoSegments(rawText: string): Array<{ rawStart: number; rawEnd: n
   return segments;
 }
 
-// ── MCP conversations.json → GET (통로: MCP에서 저장된 대화 읽기) ──
-recordsRouter.get('/', (_req: Request, res: Response) => {
-  const conversations = readConversations();
-  res.json({ records: conversations });
+// ── GET: 로그인한 사용자의 보관된 대화 기록 (최신순)
+recordsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req);
+
+  const records = await db.record.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      conversationId: true,
+      rawText: true,
+      context: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+
+  const mapped = records.map((record) => ({
+    id: record.id,
+    session_id: record.conversationId,
+    stored_at: record.createdAt.toISOString(),
+    conversation_text: record.rawText,
+    context: (record.context as Record<string, unknown>) ?? {},
+    status: record.status,
+  }));
+
+  res.json({ records: mapped });
 });
 
 // ── 위키 엔진 처리: POST (원문 → Record → Segment → Solar → Node/Proposal/Evidence) ──
