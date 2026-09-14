@@ -120,12 +120,31 @@ export async function generateFromRecord(
     };
   }
 
-  const raw = (() => {
-    const choice = response.choices[0];
-    if (!choice || !choice.message) return '';
-    const msg = choice.message as { content?: string | null };
-    return (msg.content ?? '').trim();
-  })();
+  const choices = response.choices;
+  if (!choices || choices.length === 0) {
+    return {
+      status: 'no_result',
+      newNodes: [],
+      proposals: [],
+      interestCandidates: [],
+      sensitiveInfo: { hasSensitiveInfo: false },
+      error: { kind: 'no_result', message: 'Solar 응답 선택지가 없음' },
+    };
+  }
+
+  const choice = choices[0];
+  if (!choice || !choice.message) {
+    return {
+      status: 'no_result',
+      newNodes: [],
+      proposals: [],
+      interestCandidates: [],
+      sensitiveInfo: { hasSensitiveInfo: false },
+      error: { kind: 'no_result', message: 'Solar 응답 내용이 없음' },
+    };
+  }
+
+  const raw = (choice.message.content ?? '').trim();
 
   if (!raw) {
     return {
@@ -336,16 +355,25 @@ export async function generateChatReply(
       max_tokens: 2048,
     });
 
-    const choice = response.choices[0];
+    const choices = response.choices;
+    if (!choices || choices.length === 0) {
+      return {
+        status: 'no_result',
+        content: '',
+        error: 'Solar 응답 선택지가 없음',
+      };
+    }
+
+    const choice = choices[0];
     if (!choice || !choice.message) {
       return {
         status: 'no_result',
         content: '',
-        error: 'Solar 응답이 없음',
+        error: 'Solar 응답 내용이 없음',
       };
     }
 
-    const content = (choice.message as { content?: string | null }).content ?? '';
+    const content = (choice.message.content ?? '');
     if (!content.trim()) {
       return {
         status: 'no_result',
