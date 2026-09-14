@@ -20,6 +20,7 @@ export interface Proposal {
   status: '제안됨' | '승인됨' | '기각됨' | '반영됨';
   decisionAt?: string;
   decisionAction?: string;
+  reflected?: boolean;
 }
 
 export interface DecideRequest {
@@ -45,10 +46,10 @@ export interface ProposalResponse {
 export interface RecordsResponse {
   records: Array<{
     id: string;
-    conversationId: string;
-    source: string;
-    receivedAt: string;
-    status: string;
+    session_id: string;
+    stored_at: string;
+    conversation_text: string;
+    context: Record<string, unknown>;
   }>;
 }
 

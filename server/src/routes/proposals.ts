@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { MOCK_NODES } from './nodes';
 
 export const proposalsRouter = Router();
 
@@ -56,8 +57,32 @@ proposalsRouter.post('/:id/decide', (req: Request, res: Response) => {
   const { action } = req.body as { action: '수락' | '기각' };
   if (!action) return res.status(400).json({ error: 'action(수락/기각)이 필요' });
 
-  const nextStatus = action === '수락' ? '승인됨' : '기각됨';
-  const updated = { ...p, status: nextStatus as typeof p.status, decisionAction: action };
+  if (action === '기각') {
+    const nextStatus = '기각됨';
+    const updated = { ...p, status: nextStatus as typeof p.status, decisionAction: action };
+    return res.json({ proposal: updated });
+  }
+
+  // 수락 시 타겟 노드를 실제 반영
+  let reflected = false;
+  if (p.targetNodeId && p.after) {
+    const targetNode = MOCK_NODES.find((n) => n.id === p.targetNodeId);
+    if (targetNode) {
+      if (p.after.summary !== undefined) targetNode.summary = p.after.summary;
+      if (p.after.content !== undefined) targetNode.content = p.after.content;
+      targetNode.updatedAt = new Date().toISOString();
+      reflected = true;
+    }
+  }
+
+  const nextStatus = reflected ? '반영됨' : '승인됨';
+  const updated = {
+    ...p,
+    status: nextStatus as typeof p.status,
+    decisionAction: action,
+    decisionAt: new Date().toISOString(),
+    reflected,
+  };
 
   res.json({ proposal: updated });
 });
