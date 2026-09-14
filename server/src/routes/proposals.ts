@@ -42,8 +42,8 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
   try {
     const userId = getUserId(req);
     const { action } = req.body as { action?: '수락' | '기각' };
-    if (!action) {
-      return res.status(400).json({ error: 'action(수락/기각)이 필요' });
+    if (action !== '수락' && action !== '기각') {
+      return res.status(400).json({ error: 'action은 수락 또는 기각이어야 합니다' });
     }
 
     const proposal = await db.proposal.findFirst({
@@ -51,6 +51,11 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
     });
     if (!proposal) {
       return res.status(404).json({ error: '제안을 찾지 못함' });
+    }
+
+    // 이미 결정된 제안은 재결정 불가
+    if (proposal.status === '승인됨' || proposal.status === '기각됨' || proposal.status === '반영됨') {
+      return res.status(409).json({ error: `이 제안은 이미 ${proposal.status}로 결정되어 다시 결정할 수 없습니다` });
     }
 
     const nextStatus = action === '수락' ? '승인됨' : '기각됨';
