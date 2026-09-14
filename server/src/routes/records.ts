@@ -68,6 +68,7 @@ recordsRouter.get('/', (_req: Request, res: Response) => {
 // ── 위키 엔진 처리: POST (원문 → Record → Segment → Solar → Node/Proposal/Evidence) ──
 recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  let recordId: string | undefined;
   try {
     const { rawText, conversationId, source, context } = req.body as {
       rawText?: string;
@@ -92,6 +93,8 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
         status: '처리중',
       },
     });
+
+    recordId = record.id;
 
     // 2. ConversationSegment 생성 (없으면 원문 전체를 1개 세그먼트로)
     const segments = splitIntoSegments(rawText);
@@ -309,6 +312,17 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('records POST pipeline error:', err);
+    // 이미 생성된 record가 있으면 상태를 '실패'로 갱신
+    if (recordId) {
+      try {
+        await db.record.update({
+          where: { id: recordId },
+          data: { status: '실패', errorMessage: String((err as Error).message ?? '알 수 없는 오류') },
+        });
+      } catch (updateErr) {
+        console.error('records POST pipeline - record 실패 갱신 오류:', updateErr);
+      }
+    }
     return res.status(500).json({ error: '서버 오류' });
   }
 });

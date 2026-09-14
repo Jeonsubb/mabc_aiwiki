@@ -97,13 +97,13 @@ export default function ProposalPage() {
         <div className="compare">
           <div className="compare-col">
             <h4>변경 전</h4>
-            <p className="compare-summary">{proposal.before.summary}</p>
-            <div className="compare-content">{proposal.before.content}</div>
+            <p className="compare-summary">{proposal.before?.summary ?? ''}</p>
+            <div className="compare-content">{proposal.before?.content ?? ''}</div>
           </div>
           <div className="compare-col">
             <h4>변경 후</h4>
-            <p className="compare-summary">{proposal.after.summary}</p>
-            <div className="compare-content">{proposal.after.content}</div>
+            <p className="compare-summary">{proposal.after?.summary ?? ''}</p>
+            <div className="compare-content">{proposal.after?.content ?? ''}</div>
           </div>
         </div>
       </div>

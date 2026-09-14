@@ -191,10 +191,16 @@ function parseSolarResult(raw: string): SolarResult {
 }
 
 function extractJson(raw: string): Record<string, unknown> | null {
-  const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return null;
+  // 마크다운 코드펜스 제거
+  const cleaned = raw
+    .replace(/```[a-zA-Z]*\s*\n?/g, '')
+    .replace(/\n?\s*```/g, '');
+
+  // 중괄호로 감싸진 블록 중 첫 번째 유효한 JSON 찾기
+  const candidate = cleaned.match(/\{[\s\S]*\}/);
+  if (!candidate) return null;
   try {
-    return JSON.parse(m[0]) as Record<string, unknown>;
+    return JSON.parse(candidate[0]) as Record<string, unknown>;
   } catch {
     return null;
   }
