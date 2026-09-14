@@ -48,13 +48,13 @@ export default function Inbox() {
             <div className="inbox-head">
               <div className="inbox-main">
                 <p className="record-id">유입 ID: {r.id}</p>
-                <p className="record-title">대화 {r.conversationId}</p>
+                <p className="record-session">세션: {r.session_id}</p>
+                <p className="record-text">{r.conversation_text}</p>
               </div>
-              {statusLabel(r.status)}
+              <p className="record-meta">
+                수신: {new Date(r.stored_at).toLocaleString()}
+              </p>
             </div>
-            <p className="record-meta">
-              출처: {r.source} · 수신: {new Date(r.receivedAt).toLocaleString()}
-            </p>
           </div>
         ))
       )}

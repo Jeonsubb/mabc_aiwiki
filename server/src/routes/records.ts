@@ -2,11 +2,47 @@ import { Router, Request, Response } from 'express';
 import { db, hashPassword, hashContent } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { generateFromRecord, type SolarResult } from '../solar';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 
 export const recordsRouter = Router();
 
 function getUserId(req: Request): string {
   return (req as any).userId as string;
+}
+
+// ── MCP conversations.json 읽기 ──────────────────────────────────
+function conversationsPath(): string {
+  const env = process.env.MABC_MCP_STORE;
+  if (env) {
+    return path.join(env, 'conversations.json');
+  }
+  return path.join(os.homedir(), '.mabc-mcp-store', 'conversations.json');
+}
+
+function readConversations(): Array<{
+  id: string;
+  session_id: string;
+  stored_at: string;
+  conversation_text: string;
+  context: Record<string, unknown>;
+}> {
+  const p = conversationsPath();
+  try {
+    const raw = fs.readFileSync(p, 'utf-8');
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return [];
+    return data as Array<{
+      id: string;
+      session_id: string;
+      stored_at: string;
+      conversation_text: string;
+      context: Record<string, unknown>;
+    }>;
+  } catch {
+    return [];
+  }
 }
 
 // 원문 → 세그먼트 분할 (개행 기준)
@@ -18,11 +54,18 @@ function splitIntoSegments(rawText: string): Array<{ rawStart: number; rawEnd: n
     const start = offset;
     const end = offset + line.length;
     segments.push({ rawStart: start, rawEnd: end, rawText: line });
-    offset = end + 1; // '\n' 1문자
+    offset = end + 1;
   }
   return segments;
 }
 
+// ── MCP conversations.json → GET (통로: MCP에서 저장된 대화 읽기) ──
+recordsRouter.get('/', (_req: Request, res: Response) => {
+  const conversations = readConversations();
+  res.json({ records: conversations });
+});
+
+// ── 위키 엔진 처리: POST (원문 → Record → Segment → Solar → Node/Proposal/Evidence) ──
 recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req);
   try {
@@ -36,7 +79,7 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'rawText가 필요' });
     }
 
-    // ── 1. Record 생성 ──────────────────────────────────────────────
+    // 1. Record 생성 (status: 처리중, contentHash: 솔트 없는 SHA-256)
     const contentHash = await hashContent(rawText);
     const record = await db.record.create({
       data: {
@@ -50,10 +93,11 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       },
     });
 
-    // ── 2. ConversationSegment 생성 ─────────────────────────────────
+    // 2. ConversationSegment 생성 (없으면 원문 전체를 1개 세그먼트로)
     const segments = splitIntoSegments(rawText);
-    const createdSegments = await db.conversationSegment.createMany({
-      data: segments.map((seg, idx) => ({
+    const effectiveSegments = segments.length > 0 ? segments : [{ rawStart: 0, rawEnd: rawText.length, rawText }];
+    await db.conversationSegment.createMany({
+      data: effectiveSegments.map((seg, idx) => ({
         recordId: record.id,
         segmentIndex: idx,
         rawStart: seg.rawStart,
@@ -70,31 +114,30 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       })
     ).map((s) => s.id);
 
-    // ── 3. 기존 위키 노드 조회 ──────────────────────────────────────
+    // 3. 기존 위키 노드 조회
     const existingNodes = await db.wikiNode.findMany({
       where: { userId },
       select: { id: true, title: true, summary: true, content: true, topics: true, tags: true, categories: true },
     });
 
-    // ── 4. generateFromRecord() 호출 ───────────────────────────────
+    // 4. generateFromRecord() 호출
     const solarResult = await generateFromRecord(
       rawText,
       existingNodes,
-      segmentIds.length > 0 ? segmentIds : [],
+      segmentIds,
       record.id,
     );
 
     let recordStatus: string;
     let errorMessage: string | undefined;
 
-    // ── 5. 새 노드 + 버전 생성 ──────────────────────────────────────
     const createdNodes: Array<{ id: string; title: string }> = [];
     const createdProposals: Array<{ id: string; type: string; action: string; reason: string }> = [];
 
     if (solarResult.status === 'success') {
       recordStatus = '처리됨';
 
-      // 노드 생성
+      // 새 노드 + 버전 생성
       for (const nodeDraft of solarResult.newNodes) {
         if (!nodeDraft.title) continue;
         const node = await db.wikiNode.create({
@@ -111,7 +154,6 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
           },
         });
 
-        // v1 버전 생성
         await db.nodeVersion.create({
           data: {
             nodeId: node.id,
@@ -129,7 +171,6 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
 
         createdNodes.push({ id: node.id, title: node.title });
 
-        // RecordToNode 매핑
         await db.recordToNode.create({
           data: {
             recordId: record.id,
@@ -144,9 +185,8 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       let skillHash: string | null = null;
       try {
         skillHash = (await import('../solar.js')).computeSkillHash();
-      } catch {
-        // ignore
-      }
+      } catch {}
+
       for (const propDraft of solarResult.proposals) {
         if (!propDraft.action && !propDraft.reason) continue;
         const proposal = await db.proposal.create({
@@ -170,7 +210,6 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
           },
         });
 
-        // ProposalEvidence 생성
         for (const segId of propDraft.evidenceSegments) {
           const seg = await db.conversationSegment.findUnique({ where: { id: segId } });
           if (seg) {
@@ -194,11 +233,11 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
         });
       }
 
-      // ── 6. 관심사 후보 처리 ──────────────────────────────────────
+      // 관심사 후보 처리
       for (const cand of solarResult.interestCandidates) {
         if (!cand.interest) continue;
         const tracking = await db.interestTracking.upsert({
-          where: { user_interest_unique: { userId, interest: cand.interest } },
+          where: { userId_interest: { userId, interest: cand.interest } },
           create: {
             userId,
             interest: cand.interest,
@@ -224,14 +263,12 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
         });
       }
 
-      // 민감 정보 플래그 기록
       if (solarResult.sensitiveInfo.hasSensitiveInfo) {
         errorMessage = solarResult.sensitiveInfo.warning
           ? `민감 정보 감지: ${solarResult.sensitiveInfo.warning}`
           : '민감 정보가 포함된 원문입니다';
       }
     } else {
-      // Solar 처리 실패
       recordStatus = '실패';
       errorMessage = solarResult.status === 'service_error'
         ? `Solar 서비스 오류: ${solarResult.error?.message || '알 수 없는 오류'}`
@@ -242,7 +279,7 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
             : 'Solar 처리 중 오류 발생';
     }
 
-    // ── 7. Record 상태 갱신 ─────────────────────────────────────────
+    // 5. Record 상태 갱신
     await db.record.update({
       where: { id: record.id },
       data: {
@@ -251,7 +288,6 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       },
     });
 
-    // ── 8. 응답 ────────────────────────────────────────────────────
     return res.status(201).json({
       record: {
         id: record.id,
@@ -268,51 +304,5 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
   } catch (err) {
     console.error('records POST pipeline error:', err);
     return res.status(500).json({ error: '서버 오류' });
-  }
-});
-
-recordsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = getUserId(req);
-    const records = await db.record.findMany({
-      where: { userId },
-      orderBy: { receivedAt: 'desc' },
-      select: {
-        id: true,
-        conversationId: true,
-        source: true,
-        rawText: false,
-        contentHash: false,
-        context: true,
-        status: true,
-        retryCount: true,
-        errorMessage: true,
-        receivedAt: true,
-        createdAt: true,
-      },
-    });
-    res.json({ records });
-  } catch (err) {
-    console.error('records GET error:', err);
-    res.status(500).json({ error: '서버 오류' });
-  }
-});
-
-recordsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const userId = getUserId(req);
-    const record = await db.record.findFirst({
-      where: { id: req.params.id, userId },
-      include: {
-        segments: { orderBy: { segmentIndex: 'asc' }, select: { id: true, segmentIndex: true, rawText: true } },
-      },
-    });
-    if (!record) {
-      return res.status(404).json({ error: '기록을 찾지 못함' });
-    }
-    res.json({ record });
-  } catch (err) {
-    console.error('records GET /:id error:', err);
-    res.status(500).json({ error: '서버 오류' });
   }
 });

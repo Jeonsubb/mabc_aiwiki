@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type { WikiNode } from '@shared/api';
+import GraphDemo from '../components/GraphDemo';
 
 export default function Hub() {
   const [nodes, setNodes] = useState<WikiNode[]>([]);
@@ -46,6 +47,10 @@ export default function Hub() {
         </p>
         <Link to="/proposals" className="btn btn-primary">제안 보기</Link>
       </div>
+
+      <section style={{ marginBottom: "var(--sp-xl)", height: "60vh" }}>
+        <GraphDemo />
+      </section>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "var(--sp-md)" }}>
         {nodes.map((n) => (
