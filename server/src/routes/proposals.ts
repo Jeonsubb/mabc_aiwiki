@@ -1,63 +1,71 @@
 import { Router, Request, Response } from 'express';
+import { db } from '../db';
+import { requireAuth } from '../middleware/auth';
 
 export const proposalsRouter = Router();
 
-const MOCK_PROPOSALS = [
-  {
-    id: 'prop_001',
-    type: '추가' as const,
-    targetNodeId: 'node_001',
-    action: '기존 노드에 보강',
-    reason: '새 대화에서 같은 주제(콘텐츠 기획 워크플로우)를 다시 다루며 결정 이유가 추가됨.',
-    evidence: '대화 발췌: "주제 3개 중 2수준은 이렇게 잡고, 나머지는 나중에…"\n\n이전 노드에는 1,2만 있고 3수준 판단이 빠져 있음.',
-    before: {
-      summary: 'AI와 기획 대화를 주고받으며 콘텐츠 제작 워크플로우를 정리한 노드.',
-      content: '## 핵심\n\n1. 주제 후보 3개 던지기\n2. 질문/반박 주고받기',
-    },
-    after: {
-      summary: 'AI와 기획 대화를 주고받으며 콘텐츠 제작 워크플로우를 정리한 노드. (3수준 판단 기준 보강)',
-      content: '## 핵심\n\n1. 주제 후보 3개 던지기\n2. 질문/반박 주고받기\n3. 3수준 판단은 보류하고 메모로 남기기',
-    },
-    status: '제안됨' as const,
-  },
-  {
-    id: 'prop_002',
-    type: '분리' as const,
-    sourceNodeId: 'node_001',
-    action: '새 노드로 분리',
-    reason: '기존 노드 안에서 검토 기준이 별도 주제로 정리될 만해서 분리 제안.',
-    evidence: '대화 중 "검토 기준을 따로 빼서 보는 게 좋겠다"는 발언.',
-    before: {
-      summary: '콘텐츠 기획 아이디어 — AI 협업 워크플로우',
-      content: '## 핵심\n\n1. 주제 후보 3개 던지기\n2. 질문/반박 주고받기\n3. 검토 기준 포함',
-    },
-    after: {
-      summary: '콘텐츠 기획 아이디어 — AI 협업 워크플로우 (검토 기준 분리됨)',
-      content: '## 핵심\n\n1. 주제 후보 3개 던지기\n2. 질문/반박 주고받기\n\n## 관련\n\n- 검토 기준 정리 노드와 연결',
-    },
-    status: '제안됨' as const,
-  },
-];
+function getUserId(req: Request): string {
+  return (req as any).userId as string;
+}
 
-proposalsRouter.get('/', (_req: Request, res: Response) => {
-  res.json({ proposals: MOCK_PROPOSALS });
+proposalsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const proposals = await db.proposal.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ proposals });
+  } catch (err) {
+    console.error('proposals GET error:', err);
+    res.status(500).json({ error: '서버 오류' });
+  }
 });
 
-proposalsRouter.get('/:id', (req: Request, res: Response) => {
-  const p = MOCK_PROPOSALS.find((p) => p.id === req.params.id);
-  if (!p) return res.status(404).json({ error: '제안을 찾지 못함' });
-  res.json({ proposal: p });
+proposalsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const proposal = await db.proposal.findFirst({
+      where: { id: req.params.id, userId },
+    });
+    if (!proposal) {
+      return res.status(404).json({ error: '제안을 찾지 못함' });
+    }
+    res.json({ proposal });
+  } catch (err) {
+    console.error('proposals GET /:id error:', err);
+    res.status(500).json({ error: '서버 오류' });
+  }
 });
 
-proposalsRouter.post('/:id/decide', (req: Request, res: Response) => {
-  const p = MOCK_PROPOSALS.find((p) => p.id === req.params.id);
-  if (!p) return res.status(404).json({ error: '제안을 찾지 못함' });
+proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const { action } = req.body as { action?: '수락' | '기각' };
+    if (!action) {
+      return res.status(400).json({ error: 'action(수락/기각)이 필요' });
+    }
 
-  const { action } = req.body as { action: '수락' | '기각' };
-  if (!action) return res.status(400).json({ error: 'action(수락/기각)이 필요' });
+    const proposal = await db.proposal.findFirst({
+      where: { id: req.params.id, userId },
+    });
+    if (!proposal) {
+      return res.status(404).json({ error: '제안을 찾지 못함' });
+    }
 
-  const nextStatus = action === '수락' ? '승인됨' : '기각됨';
-  const updated = { ...p, status: nextStatus as typeof p.status, decisionAction: action };
+    const nextStatus = action === '수락' ? '승인됨' : '기각됨';
+    const updated = await db.proposal.update({
+      where: { id: req.params.id },
+      data: {
+        status: nextStatus,
+        decisionAction: action,
+        decisionAt: new Date(),
+      },
+    });
 
-  res.json({ proposal: updated });
+    res.json({ proposal: updated });
+  } catch (err) {
+    console.error('proposals decide error:', err);
+    res.status(500).json({ error: '서버 오류' });
+  }
 });

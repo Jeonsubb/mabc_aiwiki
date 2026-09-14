@@ -7,5 +7,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "exclude": [
+    "src/mcpClient.ts",
+    "src/mcp-test.ts",
+    "src/test-mcp-server.ts"
+  ]
 }

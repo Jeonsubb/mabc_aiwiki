@@ -6,3 +6,5 @@ dist/
 .server/
 coverage/
 *.tsbuildinfo
+server/.docker-data/
+server/.env.bak
