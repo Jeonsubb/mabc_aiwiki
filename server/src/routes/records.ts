@@ -244,7 +244,7 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
       for (const cand of solarResult.interestCandidates) {
         if (!cand.interest) continue;
         const tracking = await db.interestTracking.upsert({
-          where: { userId_interest: { userId, interest: cand.interest } },
+          where: { user_interest_unique: { userId, interest: cand.interest } },
           create: {
             userId,
             interest: cand.interest,
