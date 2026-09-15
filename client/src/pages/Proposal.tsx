@@ -75,8 +75,7 @@ export default function ProposalPage() {
   if (!proposal) {
     return (
       <div>
-        <Link to="/" className="btn btn-ghost">← 허브로</Link>
-        <h2>제안 목록</h2>
+        <Link to="/proposals" className="btn btn-ghost">← 제안 목록</Link>        <h2>제안 목록</h2>
         <p className="hint">아직 표시할 제안이 없습니다.</p>
       </div>
     );
@@ -86,8 +85,7 @@ export default function ProposalPage() {
 
   return (
     <div className="container">
-      <Link to="/" className="btn btn-ghost">← 허브로</Link>
-      <div className="flex items-center gap-xs mb-md">
+        <Link to="/proposals" className="btn btn-ghost">← 제안 목록</Link>      <div className="flex items-center gap-xs mb-md">
         <h2>제안 — {proposal.type}</h2>
         <span className="badge badge-blue">{proposal.status}</span>
       </div>

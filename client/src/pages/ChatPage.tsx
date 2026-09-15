@@ -154,9 +154,25 @@ export default function ChatPage() {
               : '아직 메시지가 없음'}
           </div>
         </div>
+        <div style={{ display: 'flex', gap: 'var(--sp-xs)' }}>
+        <button
+        type="button"
+        className="btn btn-primary"
+        onClick={async () => {
+          try {
+            const res = await api.createChat({});
+            navigate(`/chats/${res.chat.id}`);
+          } catch (err) {
+            setSendError(err instanceof Error ? err.message : '대화방 생성 실패');
+          }
+        }}
+      >
+        새 대화
+      </button>
         <button type="button" className="btn btn-ghost" onClick={() => navigate('/chats')}>
           목록으로
         </button>
+      </div>
       </header>
 
       <div className="chat-messages">

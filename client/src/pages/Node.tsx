@@ -22,7 +22,7 @@ function NodePageInner() {
 
   return (
     <div className="node-page">
-      <Link to="/" className="btn btn-ghost">← 허브로</Link>
+      <Link to="/proposals" className="btn btn-ghost">← 제안 목록</Link>      
       <h2>{node.title}</h2>
       <p className="node-summary">{node.summary}</p>
       <div className="node-topics">

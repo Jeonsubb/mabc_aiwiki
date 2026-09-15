@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+
 import { api } from '../services/api';
 import type { RecordsResponse } from '@shared/api';
 
@@ -25,11 +25,8 @@ export default function Inbox() {
   if (loading) return <p className="hint">불러오는 중...</p>;
 
   return (
-    <div>
-      <nav className="inbox-nav">
-        <Link to="/" className="btn btn-ghost">← 허브</Link>
-      </nav>
-
+    <div className="container">
+      
       <h2>보관된 대화 유입 기록</h2>
       <p className="hint">
         저장 경로: /records · MCP로 들어온 대화 구간이 쌓입니다.
