@@ -2169,3 +2169,5 @@ code, pre {
 .badge-status-error { background: var(--color-error-soft); color: var(--color-error); border-color: transparent; }
 .card .card { margin-top: var(--sp-sm) !important; padding: var(--sp-md); background: var(--surface-bg); }
 .card ul { margin: var(--sp-md) 0 0 !important; }
+
+.btn { white-space: nowrap; flex-shrink: 0; }
