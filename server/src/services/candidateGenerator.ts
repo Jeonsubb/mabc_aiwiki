@@ -11,7 +11,7 @@ export interface CandidateGenerationResult {
   excluded: Array<{ source: 'newNode' | 'proposal'; reason: string }>;
 }
 
-const VALID_PROPOSAL_TYPES = ['추가', '갱신', '분리', '병합', '연결', '보강', '수정'] as const;
+const VALID_PROPOSAL_TYPES = ['추가', '갱신', '연결'] as const;
 
 function validateNewNodeDraft(
   nodeDraft: {
