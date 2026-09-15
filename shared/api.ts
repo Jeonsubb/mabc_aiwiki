@@ -7,6 +7,12 @@ export interface WikiNode {
   updatedAt: string;
 }
 
+export interface ProposalSnapshot {
+  summary?: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
 export interface Proposal {
   id: string;
   type: '추가' | '갱신' | '분리' | '병합' | '연결' | '보강' | '수정';
@@ -15,8 +21,10 @@ export interface Proposal {
   action: string;
   reason: string;
   evidence: string;
-  before?: { summary: string; content: string };
-  after?: { summary: string; content: string };
+  draftPayload?: ProposalSnapshot | null;
+  changePayload?: ProposalSnapshot | null;
+  before?: ProposalSnapshot | null;
+  after?: ProposalSnapshot | null;
   status: '제안됨' | '승인됨' | '기각됨' | '반영됨';
   decisionAt?: string;
   decisionAction?: string;

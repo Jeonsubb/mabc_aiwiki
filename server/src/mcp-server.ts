@@ -8,6 +8,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { db, hashContent } from './db';
 import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
+import { generateCandidatesForRecord, type CandidateGenerationResult } from './services/candidateGenerator';
 
 async function submitConversationTool(userId: string, args: Record<string, unknown>) {
   const session_id = args['session_id'] as string | undefined;
@@ -24,10 +25,39 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
 
   const contentHash = await hashContent(conversation_text);
 
+  // 중복 입력 감지: 기존 record 확인
   const existingRecord = await db.record.findUnique({
     where: { user_content_hash_unique: { userId, contentHash } },
   });
   if (existingRecord) {
+    const proposals = await db.proposal.findMany({
+      where: { relatedRecordId: existingRecord.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, type: true },
+    });
+
+    if (proposals.length > 0) {
+      // 이미 보관 + 후보 생성까지 완료된 레코드 → 기존 상태로 응답
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              conversation_id: existingRecord.id,
+              stored_at: existingRecord.createdAt.toISOString(),
+              duplicated: true,
+              status: existingRecord.status,
+              generated: true,
+              proposals: proposals.map((p) => ({ id: p.id, type: p.type })),
+              retryable: false,
+              note: '이미 보관 및 후보 생성이 완료된 대화입니다.',
+            }),
+          },
+        ],
+      };
+    }
+
+    // 보관은 됐지만 후보 생성이 아직 안 된 레코드 → 재시도 경로 제공
     return {
       content: [
         {
@@ -36,6 +66,10 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
             conversation_id: existingRecord.id,
             stored_at: existingRecord.createdAt.toISOString(),
             duplicated: true,
+            status: existingRecord.status,
+            generated: false,
+            retryable: true,
+            note: '보관된 대화지만 후보 생성이 완료되지 않았습니다. 동일 내용으로 재호출하면 후보 생성을 다시 시도합니다.',
           }),
         },
       ],
@@ -67,6 +101,12 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
       return created;
     });
 
+    // 원본 보관 트랜잭션 완료 후 공통 후보 생성 서비스 호출 (별도 트랜잭션)
+    const candidateResult = await generateCandidatesForRecord(userId, record.id);
+
+    const proposals = candidateResult.proposals;
+    const generated = candidateResult.status === 'success' && proposals.length > 0;
+
     return {
       content: [
         {
@@ -75,6 +115,17 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
             conversation_id: record.id,
             stored_at: record.createdAt.toISOString(),
             duplicated: false,
+            status: candidateResult.status === 'success' ? '보관됨' : '보관됨_생성실패',
+            generated,
+            retryable: !generated && candidateResult.status !== 'success',
+            candidate: {
+              status: candidateResult.status,
+              proposals,
+              interestCandidatesCount: candidateResult.interestCandidatesCount,
+              sensitiveInfo: candidateResult.sensitiveInfo,
+              error: candidateResult.error,
+              excluded: candidateResult.excluded,
+            },
           }),
         },
       ],
@@ -85,6 +136,32 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
         where: { user_content_hash_unique: { userId, contentHash } },
       });
       if (existingRecord) {
+        const proposals = await db.proposal.findMany({
+          where: { relatedRecordId: existingRecord.id },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, type: true },
+        });
+
+        if (proposals.length > 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  conversation_id: existingRecord.id,
+                  stored_at: existingRecord.createdAt.toISOString(),
+                  duplicated: true,
+                  status: existingRecord.status,
+                  generated: true,
+                  proposals: proposals.map((p) => ({ id: p.id, type: p.type })),
+                  retryable: false,
+                  note: '동시 요청이 이미 처리되었습니다.',
+                }),
+              },
+            ],
+          };
+        }
+
         return {
           content: [
             {
@@ -93,6 +170,10 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
                 conversation_id: existingRecord.id,
                 stored_at: existingRecord.createdAt.toISOString(),
                 duplicated: true,
+                status: existingRecord.status,
+                generated: false,
+                retryable: true,
+                note: '보관은 완료됐으나 후보 생성이 실행되지 않았습니다. 동일 내용으로 재호출하면 후보 생성을 시도합니다.',
               }),
             },
           ],

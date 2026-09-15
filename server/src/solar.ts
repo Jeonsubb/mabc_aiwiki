@@ -63,22 +63,26 @@ function loadSkillPrompt(): string {
   try {
     const fs = require('fs');
     const path = require('path');
-    const skillPath = path.resolve(__dirname, '../../ai-wiki-SKILL.md');
+    // solar.ts는 server/src/에 있으므로 프로젝트 루트의 docs/ai-wiki-SKILL.md를 가리킨다.
+    const skillPath = path.resolve(__dirname, '../docs/ai-wiki-SKILL.md');
     if (fs.existsSync(skillPath)) return fs.readFileSync(skillPath, 'utf-8');
-  } catch {
-    // ignore
+    console.warn(
+      `[solar] ai-wiki-SKILL.md를 찾지 못함: ${skillPath} — 개발/실행 시 규칙 파일이 로드되지 않습니다.`
+    );
+  } catch (err) {
+    console.warn(`[solar] ai-wiki-SKILL.md 로드 중 오류: ${err}`);
   }
 
   return `당신은 사용자의 AI 대화/메모/아이디어/링크/떠오른 생각을 주제별 위키로 정리하는 정리자다.
 운영 규칙:
-- 원본과 정리본을 분리한다.
-- 이미 있는 주제/항목인지 먼저 확인한다.
-- 새 항목이 필요하면 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 항목 초안을 만든다.
-- 기존 항목과 비슷하면 유사 의심으로 표시하고 병합/분리/연결 의견을 제안한다. 강제하지 않는다.
-- 태그가 없으면 후보 분류를 붙이고, 애매하면 후보 여러 개/분류 대기로 남긴다.
-- 개인정보/민감 내용은 노출하지 않고 경고만 남긴다.
-- 새로 생긴 관심사/계속 파볼 것을 따로 목록화한다.
-- 덮지 말고 갱신 이력을 우선한다.`;
+|- 원본과 정리본을 분리한다.
+|- 이미 있는 주제/항목인지 먼저 확인한다.
+|- 새 항목이 필요하면 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 항목 초안을 만든다.
+|- 기존 항목과 비슷하면 유사 의심으로 표시하고 병합/분리/연결 의견을 제안한다. 강제하지 않는다.
+|- 태그가 없으면 후보 분류를 붙이고, 애매하면 후보 여러 개/분류 대기로 남긴다.
+|- 개인정보/민감 내용은 노출하지 않고 경고만 남긴다.
+|- 새로 생긴 관심사/계속 파볼 것을 따로 목록화한다.
+|- 덮지 말고 갱신 이력을 우선한다.`;
 }
 
 export function computeSkillHash(): string {
@@ -89,8 +93,9 @@ export function computeSkillHash(): string {
 export async function generateFromRecord(
   recordRawText: string,
   existingNodes: Array<{ id: string; title: string; summary: string; content: string; topics: string[]; tags: string[]; categories: string[] }>,
-  relatedSegmentIds: string[],
-  relatedRecordId: string,
+  segments: Array<{ id: string; rawText: string; rawStart: number; rawEnd: number }>,
+  recordId: string,
+  recordContext?: Record<string, unknown>,
 ): Promise<SolarResult> {
   // API 키가 없으면 mock 응답 반환 (로컬 테스트용)
   if (!client) {
@@ -111,7 +116,41 @@ export async function generateFromRecord(
 
   const systemPrompt = `<ai-wiki-SKILL.md>\n${skillPrompt}\n</ai-wiki-SKILL.md>\n\n출력은 반드시 JSON 객체 하나로만 반환한다.\n- 민감해 보이는 정보(비밀번호, 토큰, API키, 연락처, 비공개 링크, 사적 내용)가 보이면 본문에 쓰지 말고 민감정보 플래그로만 남긴다.\n- 기존 위키 노드가 있으면 먼저 읽고, 유사/중복 가능성이 있으면 병합/분리/연결 의견을 제안한다.\n- 새 노드는 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 노드 후보를 제안한다.\n- 태그/분류가 없으면 후보 분류를 붙인다.\n- 제안 type은 '추가'|'갱신'|'분리'|'병합'|'연결'|'보강'|'수정' 중 하나여야 한다.\n- proposals.evidenceSegments에는 근거를 제공한 원문 세그먼트 id를 넣는다. 반드시 relatedSegmentIds 중 하나 이상이어야 한다.\n- proposals.relatedSegmentIds도 채운다.`;
 
-  const userPrompt = `## 입력 대화/메모\n\n${recordRawText}\n\n## 기존 위키 노드 (있을 때만)\n\n${existingNodesText}\n\n## 출력\n\n{\n  "newNodes": [{"title":"...","summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]}],\n  "proposals": [{"type":"...","targetNodeId":"...","sourceNodeId":"...","action":"...","reason":"...","evidence":"...","evidenceSegments":["..."],"before":{"summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]},"after":{...},"relatedSegmentIds":["..."],"relatedRecordId":"..."}],\n  "interestCandidates": [{"interest":"...","snippet":"..."}],\n  "sensitiveInfo": {"hasSensitiveInfo":false,"warning":"...","nodeIds":["..."],"types":["..."]}\n}`;
+  const segmentListText =
+    segments.length > 0
+      ? segments
+          .map(
+            (s) =>
+              ` 세그먼트 id=${s.id}, 위치=${s.rawStart}-${s.rawEnd}, 텍스트="${s.rawText}"`
+          )
+          .join('\n')
+      : '(세그먼트 정보 없음)';
+
+  const contextText =
+    recordContext && Object.keys(recordContext).length > 0
+      ? `원본 맥락(context):\n${JSON.stringify(recordContext, null, 2)}`
+      : '원본 맥락(context): 없음';
+
+  const userPrompt = `## 원본 기록 정보
+recordId: ${recordId}
+${contextText}
+
+## 원문 세그먼트 목록 (근거 id/위치 확인용)
+${segmentListText}
+
+## 입력 대화/메모
+${recordRawText}
+
+## 사용자 소유 기존 위키 노드 (있을 때만)
+${existingNodesText}
+
+## 출력
+{
+  "newNodes": [{"title":"...","summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]}],
+  "proposals": [{"type":"...","targetNodeId":"...","sourceNodeId":"...","action":"...","reason":"...","evidence":"...","evidenceSegments":["..."],"before":{"summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]},"after":{...},"relatedSegmentIds":["..."],"relatedRecordId":"..."}],
+  "interestCandidates": [{"interest":"...","snippet":"..."}],
+  "sensitiveInfo": {"hasSensitiveInfo":false,"warning":"...","nodeIds":["..."],"types":["..."]}
+}`;
 
   let response;
   try {
