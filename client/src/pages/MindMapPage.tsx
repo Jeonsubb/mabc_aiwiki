@@ -18,6 +18,7 @@ useEffect(() => {
           summary: n.summary,
           source: n.topics.join(" · ") || "위키",
           type: "node" as const,
+          content: n.content,
         })),
       ),
     )
