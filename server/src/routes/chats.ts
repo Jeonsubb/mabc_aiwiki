@@ -144,7 +144,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
     const { content } = req.body as { content?: string };
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return res.status(400).json({ error: '메시지 내용이 필요' });
+      return res.status(400).json({ status: 'error', error: '메시지 내용이 필요' });
     }
 
     const chat = await db.chat.findUnique({
@@ -153,11 +153,11 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
     });
 
     if (!chat) {
-      return res.status(404).json({ error: '대화방을 찾을 수 없음' });
+      return res.status(404).json({ status: 'error', error: '대화방을 찾을 수 없음' });
     }
 
     if (chat.userId !== userId) {
-      return res.status(403).json({ error: '이 대화방에 메시지를 보낼 수 없음' });
+      return res.status(403).json({ status: 'error', error: '이 대화방에 메시지를 보낼 수 없음' });
     }
 
     const trimmed = content.trim();
@@ -168,6 +168,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
         chatId,
         role: 'user',
         content: trimmed,
+        retryStatus: 'processing',
       },
       select: { id: true, role: true, content: true, createdAt: true },
     });
@@ -179,11 +180,8 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
       select: { role: true, content: true, createdAt: true },
     });
 
-    const capped = capMessages(existingMessages);
-    const solarMessages = toChatMessageRoles(capped);
-
     // 3. Solar 호출
-    const reply = await generateChatReply(solarMessages);
+    const reply = await generateChatReply(existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })));
 
     if (reply.status !== 'success' || reply.content.length === 0) {
       // 사용자 메시지는 이미 저장되어 있으므로 보존, AI 답변 실패로 응답
@@ -228,7 +226,11 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
   try {
     const userId = getUserId(req);
     const chatId = req.params.id;
-    const { pendingUserId } = req.body as { pendingUserId?: string };
+    const { messageId } = req.body as { messageId?: string };
+
+    if (!messageId || typeof messageId !== 'string' || messageId.trim().length === 0) {
+      return res.status(400).json({ status: 'error', error: '재시도할 메시지 id가 필요' });
+    }
 
     const chat = await db.chat.findUnique({
       where: { id: chatId },
@@ -236,131 +238,145 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
     });
 
     if (!chat) {
-      return res.status(404).json({ error: '대화방을 찾을 수 없음' });
+      return res.status(404).json({ status: 'error', error: '대화방을 찾을 수 없음' });
     }
 
     if (chat.userId !== userId) {
-      return res.status(403).json({ error: '이 대화방에 접근할 수 없음' });
+      return res.status(403).json({ status: 'error', error: '이 대화방에 접근할 수 없음' });
     }
 
-    // 지정된 메시지 id가 있으면 우선 확인
-    let targetMessage: { id: string; role: string; content: string; createdAt: Date; chatId: string } | null = null;
-    if (typeof pendingUserId === 'string' && pendingUserId.trim().length > 0) {
-      targetMessage = await db.chatMessage.findUnique({
-        where: { id: pendingUserId },
-        select: { id: true, role: true, content: true, createdAt: true, chatId: true },
-      });
+    // 대상 메시지 조회 + 소유자/대화방/role 검증
+    const target = await db.chatMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true, role: true, content: true, createdAt: true, chatId: true, retryStatus: true },
+    });
 
-      if (!targetMessage) {
-        return res.status(404).json({ error: '재시도 대상 메시지를 찾을 수 없음' });
-      }
-
-      if (targetMessage.role !== 'user') {
-        return res.status(400).json({ error: '재시도 대상은 사용자 메시지여야 함' });
-      }
-
-      if (targetMessage.chatId !== chatId) {
-        return res.status(403).json({ error: '이 대화방에 속한 메시지가 아님' });
-      }
-
-      // 이미 해당 메시지 이후에 assistant 답변이 있으면 재시도 불필요
-      const laterAnswer = await db.chatMessage.findFirst({
-        where: {
-          chatId,
-          role: 'assistant',
-          createdAt: { gt: targetMessage!.createdAt },
-        },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true },
-      });
-
-      if (laterAnswer) {
-        return res.json({
-          status: 'already_answered',
-          lastMessage: targetMessage,
-        });
-      }
+    if (!target) {
+      return res.status(404).json({ status: 'error', error: '재시도 대상 메시지를 찾을 수 없음' });
     }
 
-    // 명시적 대상 없으면 마지막 메시지로 fallback
-    if (!targetMessage) {
-      const lastMessage = await db.chatMessage.findFirst({
-        where: { chatId },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, role: true, content: true, createdAt: true, chatId: true },
+    if (target.role !== 'user') {
+      return res.status(400).json({ status: 'error', error: '재시도 대상은 사용자 메시지여야 함' });
+    }
+
+    if (target.chatId !== chatId) {
+      return res.status(403).json({ status: 'error', error: '이 대화방에 속한 메시지가 아님' });
+    }
+
+    if (target.retryStatus === 'processing') {
+      return res.status(409).json({
+        status: 'error',
+        error: '이미 처리 중인 메시지',
+        userMessage: target,
       });
+    }
 
-      if (lastMessage && lastMessage.role === 'assistant') {
-        return res.json({
-          status: 'already_answered',
-          lastMessage,
-        });
-      }
+    if (target.retryStatus === 'done') {
+      return res.status(409).json({
+        status: 'error',
+        error: '이미 답변이 완료된 메시지',
+        userMessage: target,
+      });
+    }
 
-      if (!lastMessage || lastMessage.role !== 'user') {
-        return res.status(400).json({ error: '재시도할 사용자 메시지가 없음' });
-      }
+    if (target.retryStatus !== 'failed') {
+      return res.status(409).json({
+        status: 'error',
+        error: '재시도할 수 없는 상태의 메시지',
+        userMessage: target,
+      });
+    }
 
-      targetMessage = lastMessage;
+    // failed → processing CAS
+    const casResult = await db.chatMessage.update({
+      where: { id: target.id, retryStatus: 'failed' },
+      data: { retryStatus: 'processing' },
+    });
+
+    if (!casResult) {
+      const current = await db.chatMessage.findUnique({
+        where: { id: target.id },
+        select: { id: true, role: true, content: true, createdAt: true, retryStatus: true },
+      });
+      return res.status(409).json({
+        status: 'error',
+        error: '이미 처리 중인 메시지',
+        userMessage: current ?? target,
+      });
     }
 
     // 재시도 대상 메시지 기준으로 이전 메시지까지 가져와서 Solar 호출
     const existingMessages = await db.chatMessage.findMany({
-      where: { chatId, createdAt: { lte: targetMessage!.createdAt } },
+      where: { chatId, createdAt: { lte: target.createdAt } },
       orderBy: { createdAt: 'asc' },
       select: { role: true, content: true, createdAt: true },
     });
 
-    const capped = capMessages(existingMessages);
-    const solarMessages = toChatMessageRoles(capped);
-
-    const reply = await generateChatReply(solarMessages);
+    const reply = await generateChatReply(existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })));
 
     if (reply.status !== 'success' || reply.content.length === 0) {
+      // 실패: 대상 메시지 상태를 failed로 (processing 남기지 않음)
+      await db.chatMessage.update({
+        where: { id: target.id },
+        data: { retryStatus: 'failed' },
+      });
+
       return res.status(201).json({
         status: 'error',
         error: reply.error || 'AI 답변을 생성하지 못했음',
-        pendingUserMessageId: targetMessage.id,
+        userMessage: target,
       });
     }
 
-    // 답변 저장 직전에 다시 확인하여, race로 이미 답변이 생성됐으면
-    // 새로 만들지 않고 기존 답변을 재사용한다.
-    const existingAnswer = await db.chatMessage.findFirst({
-      where: {
-        chatId,
-        role: 'assistant',
-        createdAt: { gt: targetMessage!.createdAt },
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, role: true, content: true, createdAt: true },
-    });
+    // 성공: 트랜잭션 안에서 답변 생성 + 완료 처리 + 채팅방 갱신
+    const assistantMessage = await db.$transaction(async (tx) => {
+      let answer;
+      try {
+        answer = await tx.chatMessage.create({
+          data: {
+            chatId,
+            role: 'assistant',
+            content: reply.content,
+            retryStatus: 'done',
+            referencedMessageId: target.id,
+          },
+          select: { id: true, role: true, content: true, createdAt: true, retryStatus: true },
+        });
+      } catch (err: any) {
+        // 유일성 제약 위반이면 이미 답변이 존재 -> 기존 답변 조회
+        if ((err?.code === 'P2002' || String(err?.code ?? '').startsWith('P2002')) && err?.meta?.modelName === 'ChatMessage') {
+          const existing = await tx.chatMessage.findFirst({
+            where: { chatId, role: 'assistant', referencedMessageId: target.id },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true, role: true, content: true, createdAt: true, retryStatus: true },
+          });
+          if (!existing) throw err;
+          answer = existing;
+        } else {
+          throw err;
+        }
+      }
 
-    let assistantMessage;
-    if (existingAnswer) {
-      assistantMessage = existingAnswer;
-    } else {
-      assistantMessage = await db.chatMessage.create({
-        data: {
-          chatId,
-          role: 'assistant',
-          content: reply.content,
-        },
-        select: { id: true, role: true, content: true, createdAt: true },
+      await tx.chatMessage.update({
+        where: { id: target.id },
+        data: { retryStatus: 'done' },
       });
-    }
 
-    await db.chat.update({
-      where: { id: chatId },
-      data: { updatedAt: new Date() },
+      await tx.chat.update({
+        where: { id: chatId },
+        data: { updatedAt: new Date() },
+      });
+
+      return answer;
     });
 
     return res.status(201).json({
       status: 'success',
+      userMessage: target,
       assistantMessage,
     });
   } catch (err) {
     console.error('chats POST /:id/retry error:', err);
-    return res.status(500).json({ error: '서버 오류' });
+    return res.status(500).json({ status: 'error', error: '서버 오류' });
   }
 });

@@ -1,51 +1,4 @@
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
-}
-
-export interface MeResponse {
-  user: {
-    id: string;
-    email: string;
-  };
-}
-
-export interface RegisterRequest {
-  email: string;
-  name?: string;
-  password: string;
-}
-
-export interface RegisterResponse {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    createdAt: string;
-  };
-}
-
-export interface LogoutResponse {
-  ok: boolean;
-}
-
-export interface Chat {
-  id: string;
-  userId: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type RetryStatus = 'processing' | 'done' | 'failed';
 
 export interface ChatMessage {
   id: string;
@@ -53,6 +6,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  retryStatus: RetryStatus | null;
+  referencedMessageId?: string | null;
 }
 
 export interface ChatListChat {
@@ -87,15 +42,17 @@ export interface ChatMessageResponse {
   userMessage?: ChatMessage;
   assistantMessage?: ChatMessage;
   error?: string;
-  pendingUserMessageId?: string;
+}
+
+export interface ChatRetryRequest {
+  messageId: string;
 }
 
 export interface ChatRetryResponse {
-  status: 'success' | 'error' | 'already_answered';
+  status: 'success' | 'error';
+  userMessage?: ChatMessage;
   assistantMessage?: ChatMessage;
-  lastMessage?: ChatMessage;
   error?: string;
-  pendingUserMessageId?: string;
 }
 
 export interface CreateChatResponse {
@@ -107,6 +64,51 @@ export interface CreateChatResponse {
   };
 }
 
+// ---------- 인증 ----------
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+}
+
+export interface MeResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+}
+
+export interface RegisterRequest {
+  email: string;
+  name?: string;
+  password: string;
+}
+
+export interface RegisterResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    createdAt: string;
+  };
+}
+
+export interface LogoutResponse {
+  ok: boolean;
+}
+
+// ---------- 위키 ----------
 export interface WikiNode {
   id: string;
   title: string;
