@@ -18,6 +18,31 @@ import type {
   McpCredentialRevokeResponse,
 } from '@shared/api';
 
+export interface WikiSearchResponse {
+  results: Array<{
+    type: 'wiki_node';
+    nodeId: string;
+    title: string;
+    summary: string;
+    topics: string[];
+    updatedAt: string;
+  }>;
+  total: number;
+}
+
+export interface ChatSearchResponse {
+  results: Array<{
+    type: 'chat_message';
+    messageId: string;
+    chatId: string;
+    role: string;
+    content: string;
+    createdAt: string;
+    linkedNode: { nodeId: string; nodeTitle: string } | null;
+  }>;
+  total: number;
+}
+
 const BASE = import.meta.env.VITE_BACKEND_URL || '/api';
 
 async function get<T>(path: string): Promise<T> {
@@ -81,4 +106,6 @@ export const api = {
     post<McpCredentialCreateResponse>('/credentials', { name }),
   revokeCredential: (id: string) =>
     del<McpCredentialRevokeResponse>(`/credentials/${id}`),
+  searchWikiNodes: (q: string) => get<WikiSearchResponse>(`/search/wiki-nodes?q=${encodeURIComponent(q)}&limit=20`),
+  searchChatMessages: (q: string) => get<ChatSearchResponse>(`/search/chat-messages?q=${encodeURIComponent(q)}&limit=20`),
 };

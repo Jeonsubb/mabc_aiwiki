@@ -11,7 +11,7 @@ import ProposalsList from "./pages/ProposalsList";
 import Inbox from "./pages/Inbox";
 import LoginPage from "./pages/LoginPage";
 import McpCredentials from "./pages/McpCredentials";
-
+import SearchPage from "./pages/SearchPage";
 
 export default function App({
   user,
@@ -44,6 +44,7 @@ export default function App({
               <Route path="/records" element={<Inbox />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/credentials" element={<McpCredentials />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/chats" element={<ChatsListPage />} />
               <Route path="/chats/:id" element={<ChatPage />} />
               
@@ -69,5 +70,6 @@ function currentPageForPath(): string {
   if (p.startsWith("/proposal/")) return "제안";
   if (p === "/records") return "유입 기록";
   if (p === "/credentials") return "MCP 연결";
+  if (p === "/search") return "검색";
   return "생각 지도";
 }

@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Search, ChevronRight, ChevronDown, User } from "lucide-react";
 
 const pathSteps = [{ label: "나의 공간", to: "/" }] as const;
@@ -11,6 +12,8 @@ interface TopbarProps {
 }
 
 export default function Topbar({ currentPage, user, onLogout }: TopbarProps) {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
   return (
     <header className="topbar" aria-label="Nodus 상단 탐색 및 검색">
       <nav className="topbar-path" aria-label="현재 위치">
@@ -55,6 +58,9 @@ export default function Topbar({ currentPage, user, onLogout }: TopbarProps) {
             placeholder="생각, 연결, 원문 검색…"
             aria-label="생각 검색 입력"
             onFocus={(e) => e.target.select()}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && query.trim()) navigate(`/search?q=${encodeURIComponent(query.trim())}`); }}
           />
         </div>
 
