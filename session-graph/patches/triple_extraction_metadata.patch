@@ -1,0 +1,10 @@
+--- a/site-packages/atlas_rag/kg_construction/triple_extraction.py
++++ b/site-packages/atlas_rag/kg_construction/triple_extraction.py
+@@ -130,7 +130,7 @@
+                 "id": sample["id"],
+                 "text": chunk_text,
+                 "chunk_id": chunk_idx,
+-                "metadata": sample["metadata"]
++                "metadata": sample.get("metadata", {}),
+             }
+             chunks.append(chunk_data)

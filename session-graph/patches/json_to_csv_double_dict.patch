@@ -1,0 +1,11 @@
+--- a/site-packages/atlas_rag/kg_construction/utils/json_processing/json_to_csv.py
++++ b/site-packages/atlas_rag/kg_construction/utils/json_processing/json_to_csv.py
+@@ -92,7 +92,7 @@
+
+                     triple_name_keys = list(schema.keys())
+                     for key in triple_name_keys:
+-                        triple_dict = data[f'{key}_dict']
++                        triple_dict = data[key] if key.endswith("_dict") else data[f'{key}_dict']
+                         schema_items = schema[key]['items']['properties']
+                         # check if one to many or one to one
+                         one_to_many = False
