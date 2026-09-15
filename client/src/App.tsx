@@ -1,7 +1,7 @@
 import ChatsListPage from './pages/ChatsListPage';
 import ChatPage from './pages/ChatPage';
 import { useState, useEffect } from "react";
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Routes, Route, Link, useNavigate, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import MindMapPage from "./pages/MindMapPage";
@@ -47,6 +47,7 @@ export default function App({
               <Route path="/search" element={<SearchPage />} />
               <Route path="/chats" element={<ChatsListPage />} />
               <Route path="/chats/:id" element={<ChatPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
               
             </Routes>
           </div>
