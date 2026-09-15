@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { randomUUID } from 'node:crypto';
 import { db, hashContent } from './db';
 import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
@@ -51,17 +52,36 @@ function normalizeContext(context: unknown): Record<string, unknown> {
 }
 
 async function submitConversationTool(userId: string, args: Record<string, unknown>) {
-  const session_id = args['session_id'] as string | undefined;
   const conversation_text = args['conversation_text'] as string | undefined;
   const context = normalizeContext(args['context']);
   const messagesRaw = args['messages'];
   const messages = Array.isArray(messagesRaw) ? messagesRaw : undefined;
   const source = (args['source'] as string) ?? undefined;
 
-  if (!session_id) {
-    return {
-      content: [{ type: 'text', text: JSON.stringify({ error: 'session_id가 필요' }) }],
-    };
+  const rawSessionId = args['session_id'];
+  const rawSessionIdAlt = args['sessionId'];
+  let resolvedSessionId: string | undefined;
+
+  if (rawSessionId !== undefined && rawSessionId !== null) {
+    if (typeof rawSessionId !== 'string') {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'session_id는 문자열이어야 합니다' }) }],
+      };
+    }
+    resolvedSessionId = rawSessionId;
+  } else if (rawSessionIdAlt !== undefined && rawSessionIdAlt !== null) {
+    if (typeof rawSessionIdAlt !== 'string') {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'sessionId는 문자열이어야 합니다' }) }],
+      };
+    }
+    resolvedSessionId = rawSessionIdAlt;
+  }
+
+  if (!resolvedSessionId || resolvedSessionId.trim() === '') {
+    resolvedSessionId = `mcp-generated:${randomUUID()}`;
+  } else {
+    resolvedSessionId = resolvedSessionId.trim();
   }
 
   if (messagesRaw !== undefined && messagesRaw !== null) {
@@ -103,7 +123,7 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
 
     const storedText = reconstructed;
 
-    return await handleStoreAndGenerate(userId, session_id, source, validated, storedText, context);
+    return await handleStoreAndGenerate(userId, resolvedSessionId, source, validated, storedText, context);
   }
 
   if (!conversation_text || typeof conversation_text !== 'string') {
@@ -112,7 +132,7 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
     };
   }
 
-  return await handleStoreAndGenerate(userId, session_id, source, undefined, conversation_text, context);
+  return await handleStoreAndGenerate(userId, resolvedSessionId, source, undefined, conversation_text, context);
 }
 
 async function handleStoreAndGenerate(
@@ -340,11 +360,12 @@ async function listConversationsTool(userId: string, args: Record<string, unknow
 const tools = [
   {
     name: 'submit_conversation',
-    description: '대화 원본을 보관 영역에 저장한다. messages(역할 구분 메시지 목록, role/content 필수) 또는 기존 conversation_text로 원문 구간을 전달한다. 둘 다 제공하면 messages를 원문 구간의 1차 출처로 보고, messages를 role과 함께 이어 붙인 재구성 텍스트와 conversation_text가 실질적으로 같은지 검사한다. 다르면 오류로 처리한다(messages 우선). messages가 있으면 각 메시지의 role과 content가 필수이며, 비어 있을 수 없다. record_id와 timestamp는 선택이며, 알 수 없는 값을 만들어 넣지 않는다. source는 전송 출처 구분용 선택 필드다. MVP에서는 사용자가 명시적으로 위키 저장 요청을 했을 때만 호출된다고 가정하며, 자동 전송/주기 전송/대화 종료 자동 위키화는 범위 밖이다.',
+    description: '대화 원본을 보관 영역에 저장한다. messages(역할 구분 메시지 목록, role/content 필수) 또는 기존 conversation_text로 원문 구간을 전달한다. 둘 다 제공하면 messages를 원문 구간의 1차 출처로 보고, messages를 role과 함께 이어 붙인 재구성 텍스트와 conversation_text가 실질적으로 같은지 검사한다. 다르면 오류로 처리한다(messages 우선). messages가 있으면 각 메시지의 role과 content가 필수이며, 비어 있을 수 없다. record_id와 timestamp는 선택이며, 알 수 없는 값을 만들어 넣지 않는다. source는 전송 출처 구분용 선택 필드다. session_id는 선택이며, 없으면 서버가 mcp-generated:(randomUUID) 형식의 식별자를 생성한다. MCP 프로토콜의 Mcp-Session-Id는 이 도구의 입력과 무관하게 서버가 별도로 처리한다. MVP에서는 사용자가 명시적으로 위키 저장 요청을 했을 때만 호출된다고 가정하며, 자동 전송/주기 전송/대화 종료 자동 위키화는 범위 밖이다.',
     inputSchema: {
       type: 'object',
       properties: {
         session_id: { type: 'string' },
+        sessionId: { type: 'string' },
         conversation_text: { type: 'string' },
         context: { type: 'object' },
         messages: {
@@ -362,7 +383,7 @@ const tools = [
         },
         source: { type: 'string' },
       },
-      required: ['session_id'],
+      required: [],
     },
   },
   {
