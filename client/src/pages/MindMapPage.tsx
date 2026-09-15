@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import ThoughtMapGraph, { type Thought } from "../components/ThoughtMapGraph";
+import OrbitOnly from "./OrbitOnly";
 import DetailPanel from "../components/DetailPanel";
 import { api } from "../services/api";
 import type { WikiNode } from "@shared/api";
+import type { Thought } from "../components/ThoughtMapGraph";
 
 export default function MindMapPage() {
 const [selectedThought, setSelectedThought] = useState<Thought | null>(null);
@@ -27,7 +28,7 @@ useEffect(() => {
 
 
 
-const [detailView, setDetailView] = useState<{ kind: "thought"; thought: Thought | null }>({
+  const [detailView, setDetailView] = useState<{ kind: "thought"; thought: { id: string; title: string; summary: string; source: string; type: "node" } | null }>({
     kind: "thought",
     thought: null,
   });
@@ -40,9 +41,17 @@ const [detailView, setDetailView] = useState<{ kind: "thought"; thought: Thought
     <div className="page-body" style={{ flexDirection: "row", overflow: "hidden" }}>
       <section className="graph-area" aria-label="생각 지도 탐색 영역">
         <div className="graph-area-inner">
-          <ThoughtMapGraph
-            thoughts={thoughts}
-            onThoughtSelect={(t) => { setSelectedThought(t); }}
+          <OrbitOnly
+            infoPanelVisible={false}
+            onSelect={(node) => {
+              setSelectedThought(node ? {
+                id: node.id,
+                title: node.title,
+                summary: "샘플이라 대화 원문이 없습니다",
+                source: "",
+                type: "node",
+              } : null);
+            }}
           />
         </div>
       </section>

@@ -1,5 +1,6 @@
 import ChatsListPage from './pages/ChatsListPage';
 import ChatPage from './pages/ChatPage';
+import OrbitOnly from './pages/OrbitOnly';
 import { useState, useEffect } from "react";
 import { Routes, Route, Link, useNavigate, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
@@ -47,6 +48,8 @@ export default function App({
               <Route path="/search" element={<SearchPage />} />
               <Route path="/chats" element={<ChatsListPage />} />
               <Route path="/chats/:id" element={<ChatPage />} />
+              <Route path="/kept" element={<PagePlaceholder title="간직한 생각" />} />
+              <Route path="/graph" element={<OrbitOnly />} />
               <Route path="*" element={<Navigate to="/" replace />} />
               
             </Routes>
