@@ -2152,3 +2152,20 @@ code, pre {
 .card .badge + .badge { margin-left: var(--sp-xxs); }
 .card > .btn { margin-top: var(--sp-sm); margin-right: var(--sp-sm); }
 .card > a > strong { font-size: var(--text-md); color: var(--text-primary); }
+
+/* ---------- MCP 연결 페이지: 다른 목록 페이지와 틀 맞춤 ---------- */
+.section-head { margin: 0 0 var(--sp-lg); }
+.section-head .eyebrow { display: none; }
+.section-head h2 { margin: 0 0 var(--sp-xs); font-size: var(--text-xl); }
+.section-lead { margin: 0; max-width: none; font-size: var(--text-sm); color: var(--text-muted); line-height: var(--leading-body); }
+.section-head ~ .card { margin: var(--sp-md) 0 0 !important; }
+.section-head + .card { margin-top: 0 !important; }
+.record-title { margin: 0 0 var(--sp-xs) !important; font-size: var(--text-base); font-weight: 600; color: var(--text-primary); }
+.text-mono-eyebrow { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); letter-spacing: var(--tracking-mono); }
+.text-mute { font-size: var(--text-sm); color: var(--text-muted); }
+.meta-row { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.code-block { padding: var(--sp-sm) var(--sp-md); border: 1px solid var(--border-default); border-radius: var(--r-md); background: var(--surface-panel-raised); font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); overflow-x: auto; }
+.badge-status-success { background: var(--color-success-soft); color: var(--color-success); border-color: transparent; }
+.badge-status-error { background: var(--color-error-soft); color: var(--color-error); border-color: transparent; }
+.card .card { margin-top: var(--sp-sm) !important; padding: var(--sp-md); background: var(--surface-bg); }
+.card ul { margin: var(--sp-md) 0 0 !important; }
