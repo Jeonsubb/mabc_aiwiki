@@ -71,6 +71,95 @@ def list_conversations(limit: int = 50) -> list[dict[str, Any]]:
 
 # ------------------------------------------------------------------ 제안(proposal)
 
+FAILURES_FILE = STORE_DIR / "failures.json"
+
+def _record_failure(
+    conversation_id: str,
+    title: str,
+    kind: str,
+    content: dict[str, Any],
+    error: str,
+) -> None:
+    """제안 생성 실패 시 실패 사유를 별도 기록한다. (부분 제안 방지와 병행)"""
+    _ensure()
+    failures = _read(FAILURES_FILE)
+    failure = {
+        "id": str(uuid.uuid4()),
+        "conversation_id": conversation_id,
+        "title": title,
+        "kind": kind,
+        "content_keys": sorted(content.keys()),
+        "error": error,
+        "failed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    failures.append(failure)
+    _write(FAILURES_FILE, failures)
+
+
+def _build_before(kind: str, target_node_id: str | None) -> dict[str, Any]:
+    """before가 content에 없을 때 kind 기반으로 before를 구성한다.
+
+    add: {\"exists\": False}
+    change: 대상 위키 조회 결과를 before로 구성 (db 기준 before + 대상버전)
+    그 외: {\"exists\": False} (split/merge/connect/relation은 아직 before 관리 없음)
+    """
+    if kind == "add":
+        return {"exists": False}
+
+    if kind == "change" and target_node_id:
+        existing = get_wiki_node(target_node_id)
+        if existing:
+            return {
+                "exists": True,
+                "id": existing.get("id"),
+                "title": existing.get("title"),
+                "summary": existing.get("summary"),
+                "content": existing.get("content"),
+                "tags": existing.get("tags", []),
+                "related": existing.get("related", []),
+                "updated_at": existing.get("updated_at"),
+            }
+        return {"exists": False, "missing_target_node_id": target_node_id}
+
+    # split / merge / connect / relation
+    return {"exists": False}
+
+
+def _normalize_evidence(evidence: Any) -> list[dict[str, Any]]:
+    """증거 원문을 검증 가능한 표준 레코드 목록으로 정규화한다.
+
+    입력 형태:
+      - 문자열 하나: 인용문 하나
+      - 문자열 목록: 인용문 여러 개
+      - dict 목록: {\"quote\", \"source\", \"start\", \"end\", \"verified\"} 등
+    출력: {\"quote\", \"source\", \"start\", \"end\", \"verified\"} 목록
+    """
+    if evidence is None:
+        return []
+
+    if isinstance(evidence, str):
+        return [{"quote": evidence, "source": "auto", "verified": False}]
+
+    if isinstance(evidence, list):
+        out: list[dict[str, Any]] = []
+        for item in evidence:
+            if isinstance(item, str):
+                out.append({"quote": item, "source": "auto", "verified": False})
+            elif isinstance(item, dict):
+                out.append({
+                    "quote": item.get("quote") or item.get("text") or "",
+                    "source": item.get("source") or "auto",
+                    "start": item.get("start"),
+                    "end": item.get("end"),
+                    "verified": bool(item.get("verified", False)),
+                    "record_id": item.get("record_id"),
+                    "segment_id": item.get("segment_id"),
+                })
+        return out
+
+    return []
+
+
 def create_proposal(
     conversation_id: str,
     title: str,
@@ -83,10 +172,15 @@ def create_proposal(
     """위키 생성/변경/추가/분리/연결 제안을 저장한다.
 
     content가 최종 위키 내용의 기준이다.
-    before_after는 서버가 content와 target_node_id를 바탕으로 자동 생성한다.
+    content에 before/after가 직접 포함되면 이를 그대로 보존하고,
+    없으면 kind 기반으로 자동 구성한다.
+    변경 전/후, 대상 버전(db 기준 before + 대상버전), 제안 후(after),
+    신규초안전체(draftPayload), 타입별변경계획(changePlan),
+    검증된 원문 근거(evidence), 저장 완료 상태(recordStatus)를
+    하나의 제안 레코드에 보존한다.
 
     kind:
-      - add: 신규 위키 생성. before={"exists": false}, after=content로 자동 구성.
+      - add: 신규 위키 생성. before={\"exists\": false}, after=content로 자동 구성.
       - change: 기존 위키 수정. target_node_id가 필수이며, 해당 위키 조회 결과를
         before로, content를 after로 자동 구성한다.
       - split, merge, connect, relation: 아직 제안 생성만 가능, 위키 반영은 미지원.
@@ -95,43 +189,54 @@ def create_proposal(
     """
     _ensure()
 
-    # conversation_id 존재 검증
+    # conversation_id 존재 검증 (실패 시 부분 제안 없이 실패 기록만 남김)
     conv = get_conversation(conversation_id)
     if not conv:
+        _record_failure(conversation_id, title, kind, content,
+                        f"존재하지 않는 conversation_id: {conversation_id}")
         raise ValueError(f"존재하지 않는 conversation_id: {conversation_id}")
 
     # status는 항상 pending으로 고정 (MVP)
     status = "pending"
 
-    # content 허용 키 검증
-    ALLOWED_CONTENT_KEYS = {"title", "summary", "body", "tags", "related"}
-    extra_keys = set(content.keys()) - ALLOWED_CONTENT_KEYS
-    if extra_keys:
-        raise ValueError(f"content에 허용되지 않은 키가 있습니다: {', '.join(sorted(extra_keys))}")
-
-    # kind별 before/after 자동 구성
-    if kind == "add":
-        before = {"exists": False}
-        after = content
-    elif kind == "change":
+    # change 계열은 target_node_id 필수 + 대상 위키 존재 검증
+    if kind == "change":
         if not target_node_id:
+            _record_failure(conversation_id, title, kind, content,
+                            "change 제안은 target_node_id가 필요합니다")
             raise ValueError("change 제안은 target_node_id가 필요합니다")
         existing = get_wiki_node(target_node_id)
         if not existing:
+            _record_failure(conversation_id, title, kind, content,
+                            f"변경 대상 위키가 없습니다: {target_node_id}")
             raise ValueError(f"변경 대상 위키가 없습니다: {target_node_id}")
-        before = {
-            "id": existing.get("id"),
-            "title": existing.get("title"),
-            "summary": existing.get("summary"),
-            "content": existing.get("content"),
-            "tags": existing.get("tags", []),
-            "related": existing.get("related", []),
-        }
-        after = content
+
+    # content 허용 키 확장
+    ALLOWED_CONTENT_KEYS = {
+        "title", "summary", "body", "tags", "related",
+        "before", "after",
+        "baseVersion", "targetVersion",
+        "draftPayload", "changePlan", "evidence",
+        "recordStatus", "recordFailureReason",
+    }
+    extra_keys = set(content.keys()) - ALLOWED_CONTENT_KEYS
+    if extra_keys:
+        _record_failure(conversation_id, title, kind, content,
+                        f"content에 허용되지 않은 키가 있습니다: {', '.join(sorted(extra_keys))}")
+        raise ValueError(f"content에 허용되지 않은 키가 있습니다: {', '.join(sorted(extra_keys))}")
+
+    # before/after 구성
+    if "before" in content:
+        before = content["before"]
     else:
-        # split, merge, connect, relation 등은 아직 create_proposal 저장만 허용
-        before = {}
+        before = _build_before(kind, target_node_id)
+
+    if "after" in content:
+        after = content["after"]
+    else:
         after = content
+
+    evidence = _normalize_evidence(content.get("evidence"))
 
     record = {
         "id": str(uuid.uuid4()),
@@ -146,6 +251,13 @@ def create_proposal(
         "accepted_at": None,
         "rejected_at": None,
         "target_node_id": target_node_id,
+        "baseVersion": content.get("baseVersion"),
+        "targetVersion": content.get("targetVersion"),
+        "draftPayload": content.get("draftPayload"),
+        "changePlan": content.get("changePlan"),
+        "evidence": evidence,
+        "recordStatus": "stored",
+        "recordFailureReason": None,
     }
     data = _read(PROPOSALS_FILE)
     data.append(record)

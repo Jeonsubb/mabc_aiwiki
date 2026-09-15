@@ -31,6 +31,66 @@ function saveDecision(rec: DecisionRecord): void {
   } catch {}
 }
 
+function renderCompare(proposal: Proposal) {
+  if (proposal.type === '추가') {
+    return (
+      <div className="compare">
+        <div className="compare-col">
+          <h4>변경 전</h4>
+          <p className="compare-summary">새 노드</p>
+        </div>
+        <div className="compare-col">
+          <h4>변경 후</h4>
+          <NewNodePreview payload={proposal.draftPayload} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="compare">
+      <div className="compare-col">
+        <h4>변경 전</h4>
+        <p className="compare-summary">{proposal.before?.summary ?? ''}</p>
+        <div className="compare-content">{proposal.before?.content ?? ''}</div>
+      </div>
+      <div className="compare-col">
+        <h4>변경 후</h4>
+        <p className="compare-summary">{proposal.after?.summary ?? ''}</p>
+        <div className="compare-content">{proposal.after?.content ?? ''}</div>
+      </div>
+    </div>
+  );
+}
+
+function NewNodePreview({ payload }: { payload: unknown }) {
+  if (!payload || typeof payload !== 'object') {
+    return <p className="hint">draftPayload가 없습니다.</p>;
+  }
+  const p = payload as Record<string, unknown>;
+  const title = String(p.title ?? '');
+  const summary = String(p.summary ?? '');
+  const content = String(p.content ?? '');
+  const topics = Array.isArray(p.topics) ? p.topics.filter((x): x is string => typeof x === 'string') : [];
+  const tags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
+  const categories = Array.isArray(p.categories) ? p.categories.filter((x): x is string => typeof x === 'string') : [];
+
+  return (
+    <div>
+      {title && <p className="compare-summary"><strong>제목:</strong> {title}</p>}
+      {summary && <p className="compare-summary"><strong>요약:</strong> {summary}</p>}
+      {content && <div className="compare-content">{content}</div>}
+      {(topics.length > 0 || tags.length > 0 || categories.length > 0) && (
+        <div className="compare-meta">
+          {topics.length > 0 && <p><strong>토픽:</strong> {topics.join(', ')}</p>}
+          {tags.length > 0 && <p><strong>태그:</strong> {tags.join(', ')}</p>}
+          {categories.length > 0 && <p><strong>분류:</strong> {categories.join(', ')}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProposalPage() {
   const { id } = useParams<{ id: string }>();
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -92,27 +152,27 @@ export default function ProposalPage() {
 
       <div className="decide-section">
         <h3>무엇이 바뀌는지 미리 보기</h3>
-        <div className="compare">
-          <div className="compare-col">
-            <h4>변경 전</h4>
-            <p className="compare-summary">{proposal.before?.summary ?? ''}</p>
-            <div className="compare-content">{proposal.before?.content ?? ''}</div>
-          </div>
-          <div className="compare-col">
-            <h4>변경 후</h4>
-            <p className="compare-summary">{proposal.after?.summary ?? ''}</p>
-            <div className="compare-content">{proposal.after?.content ?? ''}</div>
-          </div>
-        </div>
+        {renderCompare(proposal)}
       </div>
 
       <div className="card rationale-card">
         <h3>왜 이 제안인지</h3>
         <p className="rationale-reason">{proposal.reason}</p>
         <hr className="rationale-divider" />
-        <p className="rationale-evidence">
-          <strong>근거:</strong> {proposal.evidence}
-        </p>
+        <div className="rationale-evidence">
+          <strong>근거:</strong>
+          {proposal.evidence && proposal.evidence.length > 0 ? (
+            <ul className="evidence-list">
+              {proposal.evidence.map((e) => (
+                <li key={e.id} className="evidence-item">
+                  <span className="evidence-quote">{e.quote || '(인용 없음)'}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="evidence-empty">근거가 없습니다.</p>
+          )}
+        </div>
       </div>
 
       {decided && (
@@ -132,7 +192,9 @@ export default function ProposalPage() {
             </button>
           </>
         )}
-        {saved && <p className="saved-msg">반영 완료 (새로고침해도 유지됨)</p>}
+        {proposal.status === '반영됨' && <p className="reflected-msg">위키에 반영됨</p>}
+        {proposal.status === '기각됨' && <p className="rejected-msg">제안이 기각됨</p>}
+        {saved && proposal.status !== '반영됨' && proposal.status !== '기각됨' && <p className="saved-msg">반영 완료 (새로고침해도 유지됨)</p>}
       </div>
     </div>
   );

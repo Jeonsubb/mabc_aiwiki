@@ -1397,6 +1397,29 @@ button:focus-visible {
   margin-top: var(--sp-sm);
 }
 
+.inbox-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-xs);
+  font-size: var(--type-body-sm);
+  color: var(--color-mute);
+  margin-top: var(--sp-sm);
+}
+
+.record-stored {
+  margin: 0;
+}
+
+.record-status {
+  margin: 0;
+}
+
+.record-error {
+  color: var(--color-error);
+  margin: 0;
+}
+
 /* ---------- Proposal list ---------- */
 
 .proposal-card {

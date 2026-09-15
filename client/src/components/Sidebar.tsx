@@ -5,7 +5,8 @@ import {
   MessageSquare,
   User,
   PanelLeft,
-  Lightbulb
+  Lightbulb,
+  KeyRound
 } from "lucide-react";
 
 /** 사이드바 아이콘 메뉴 항목 — 색상은 CSS에서 의미에 따라 고정 */
@@ -14,6 +15,7 @@ const menuItems = [
   { to: "/chats", icon: MessageSquare, label: "대화방" },
   { to: "/records", icon: Inbox, label: "유입 기록" },
   { to: "/proposals", icon: Lightbulb, label: "제안 목록" },
+  { to: "/credentials", icon: KeyRound, label: "MCP 연결" },
 ] as const;
 
 export default function Sidebar() {

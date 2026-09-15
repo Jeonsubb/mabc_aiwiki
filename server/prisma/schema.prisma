@@ -22,10 +22,25 @@ model User {
   records           Record[]
   memorySlots       UserMemorySlot[]
   wikiNodes         WikiNode[]
+  mcpCredentials    McpCredential[]
 
   @@map("users")
 }
 
+// ---------- 사용자별 MCP 연결 토큰 ----------
+model McpCredential {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String   @unique
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+
+  @@map("mcp_credentials")
+}
+
+// ---------- 챗 에이전트 대화 ----------
 model Chat {
   id               String                @id @default(uuid())
   userId           String
@@ -167,7 +182,11 @@ model Proposal {
   hasSensitiveInfo     Boolean            @default(false)
   sensitiveInfoWarning String?
   sensitiveInfoNodeIds String[]
-  status               String             @default("제안됨")
+  draftPayload         Json?    // 신규 노드(추가) 제안의 AI 초안 구조화된 payload
+  changePayload        Json?    // 기존 노드 변경(갱신/수정 등) 제안의 구조화된 변경안 payload
+  before               Json?     // 변경 전 노드 스냅샷 (하위 호환: 요약/본문 포함 가능)
+  after                Json?     // 변경 후 노드 스냅샷 (하위 호환: 요약/본문 포함 가능)
+  status               String    @default("제안됨") // '제안됨' | '승인됨' | '기각됨' | '반영됨'
   decisionAt           DateTime?
   decisionAction       String?
   idempotencyKey       String?            @unique

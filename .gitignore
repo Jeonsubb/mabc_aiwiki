@@ -8,6 +8,7 @@ coverage/
 *.tsbuildinfo
 server/.docker-data/
 server/.env.bak
+server/.env.production.local
 
 # === Python / MCP ===
 __pycache__/
