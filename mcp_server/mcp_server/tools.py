@@ -24,6 +24,8 @@ from mcp_server.store import (
     upsert_wiki_node,
 )
 from mcp_server.types import ToolResult
+from mcp_server import analysis_store
+from mcp_server import session_graph_bridge
 
 
 # ------------------------------------------------------------------ 1) 대화 원본 보관
@@ -50,6 +52,9 @@ def tool_submit_conversation(
       - 실질적으로 같으면 정상 처리, 다르면 오류로 처리한다(messages 우선).
       - messages가 없으면 conversation_text 방식으로 처리한다.
 
+    저장 후에는 세션 그래프 분석 대기열에도 넣는다. 실제 추출/개념화/GraphML/연결 판단은
+    별도 워커가 처리한다.
+
     주의:
       - role, content는 각 메시지의 필수 필드다. 하나라도 없으면 오류.
       - record_id, timestamp는 알 수 있는 값만 넣는다. 모르는 값을 만들어 넣지 않는다.
@@ -75,9 +80,8 @@ def _tool_submit_conversation(
     """submit_conversation의 실제 입력 검증·정규화·저장 로직.
 
     messages 방식과 conversation_text 방식을 모두 다루고, 함께 들어올 때
-    불일치를 검사한다.
+    불일치를 검사한다. 저장 후에는 세션 그래프 분석 대기열에 enqueue한다.
     """
-
     def _normalize_text(t: str) -> str:
         return " ".join(t.split())
 
@@ -116,6 +120,7 @@ def _tool_submit_conversation(
             "context": context,
             "conversation_text": stored_text,
         }
+        analysis_text = stored_text
     else:
         # messages 없음 -> 기존 방식
         if conversation_text is None or not isinstance(conversation_text, str) or not conversation_text:
@@ -127,9 +132,36 @@ def _tool_submit_conversation(
             "context": context,
             "conversation_text": conversation_text,
         }
+        analysis_text = conversation_text
 
     record = create_conversation_record(payload)
-    return ToolResult(ok=True, data={"conversation_id": record["id"], "stored_at": record["stored_at"]})
+
+    analysis_req_id = None
+    analysis_status = "not_queued"
+    try:
+        analysis_req = session_graph_bridge.enqueue_analysis(
+            session_id=session_id,
+            original_text=analysis_text,
+            context=context,
+            run_judgment=True,
+        )
+        analysis_req_id = analysis_req["id"]
+        analysis_status = analysis_req["status"]
+    except Exception as e:
+        import logging
+        logging.getLogger("mabc-wiki-mcp").error("세션 그래프 분석 요청 등록 실패: %s", e)
+
+    return ToolResult(
+        ok=True,
+        data={
+            "conversation_id": record["id"],
+            "stored_at": record["stored_at"],
+            "session_graph_analysis": {
+                "request_id": analysis_req_id,
+                "status": analysis_status,
+            },
+        },
+    )
 
 
 def tool_list_conversations(limit: int = 50) -> ToolResult:
@@ -223,13 +255,13 @@ def tool_upsert_wiki_node(
     node_id: str | None,
     title: str,
     summary: str,
-    content: dict,
+    content: dict[str, Any],
     related: list[str] | None = None,
     tags: list[str] | None = None,
     source: str | None = None,
     source_ref: str | None = None,
-    before_content: dict | None = None,
-    after_content: dict | None = None,
+    before_content: dict[str, Any] | None = None,
+    after_content: dict[str, Any] | None = None,
 ) -> ToolResult:
     """위키 노드를 생성·갱신한다.
 
@@ -244,19 +276,121 @@ def tool_upsert_wiki_node(
     # source 필수화
     if source is None:
         return ToolResult(ok=False, error="source 파라미터가 필요합니다")
-    
+
     # source 허용 값 검증
     ALLOWED_SOURCES = {"ai_proposal", "user_edit"}
     if source not in ALLOWED_SOURCES:
         return ToolResult(ok=False, error=f"허용되지 않은 source 값: {source}. 허용: {', '.join(sorted(ALLOWED_SOURCES))}")
-    
+
     # AI 제안 출처는 accept_proposal을 통해서만 허용 (승인 우회 차단)
     if source == "ai_proposal":
         return ToolResult(ok=False, error="source='ai_proposal'는 accept_proposal을 통해서만 사용할 수 있습니다")
-    
+
     record = upsert_wiki_node(
         node_id, title, summary, content, related, tags,
         source=source, source_ref=source_ref,
         before_content=before_content, after_content=after_content,
     )
     return ToolResult(ok=True, data=record)
+
+
+# ------------------------------------------------------------------ 세션 그래프 분석 요청
+
+
+def tool_submit_session_for_analysis(
+    session_id: str,
+    original_text: str,
+    source: str,
+    context: dict[str, Any] | None = None,
+) -> ToolResult:
+    """대화 원문을 세션 그래프 분석 큐에 등록한다.
+
+    원문 저장과 분석 요청이 함께 처리된다. 실제 추출/개념화/GraphML/연결 판단은
+    별도 워커가 처리하며, MCP 도구는 요청 등록과 임시 분석 응답合成까지만 담당한다.
+    Solar 호출 없이 임시 응답을 쓰는 경우 analysis_store에서 합성 결과를 채운다.
+    """
+    if not session_id or not session_id.strip():
+        return ToolResult(ok=False, error="session_id가 필요합니다")
+
+    if not original_text or not original_text.strip():
+        return ToolResult(ok=False, error="original_text가 필요합니다")
+
+    if source not in {"user_edit", "ai_proposal", "agent"}:
+        return ToolResult(ok=False, error=f"허용되지 않은 source 값: {source}. 허용: user_edit, ai_proposal, agent")
+
+    ctx = context or {}
+    rec = analysis_store.enqueue_session_analysis(
+        session_id=session_id,
+        original_text=original_text,
+        source=source,
+        context=ctx,
+        skip_judgment=True,
+    )
+
+    # 임시 분석 응답: 실제 분석 전이라도 요청 등록 결과를 바로 반환
+    return ToolResult(
+        ok=True,
+        data={
+            "request_id": rec["id"],
+            "session_id": rec["session_id"],
+            "status": rec["status"],
+            "queued_at": rec["created_at"],
+            "note": "분석은 백그라운드 워커가 처리한다. Solar 미호출 모드에서는 임시 응답이 먼저 채워질 수 있다.",
+        },
+    )
+
+
+def tool_sync_session_graph_analysis(
+    request_id: str,
+    analysis_result: dict[str, Any],
+) -> ToolResult:
+    """Solar 없이 임시 분석 응답을 기록한다.
+
+    워커가 실제 분석을 수행했거나, 테스트 목적으로 합성 결과를 넣을 때 사용한다.
+    """
+    if not request_id or not request_id.strip():
+        return ToolResult(ok=False, error="request_id가 필요합니다")
+
+    if not isinstance(analysis_result, dict):
+        return ToolResult(ok=False, error="analysis_result는 dict여야 합니다")
+
+    rec = analysis_store.mark_analysis_synced(request_id, analysis_result)
+    if not rec:
+        return ToolResult(ok=False, error=f"요청 없음: {request_id}")
+
+    return ToolResult(
+        ok=True,
+        data={
+            "request_id": rec["id"],
+            "session_id": rec["session_id"],
+            "status": rec["status"],
+            "synced_at": rec["finished_at"],
+        },
+    )
+
+
+def tool_get_session_graph_request(request_id: str) -> ToolResult:
+    """분석 요청 상태를 조회한다. (session_graph_bridge 기준)"""
+    rec = session_graph_bridge.get_status(request_id)
+    if not rec:
+        return ToolResult(ok=False, error=f"요청 없음: {request_id}")
+    return ToolResult(ok=True, data=_strip_internal(rec))
+
+
+def tool_list_session_graph_requests(limit: int = 50) -> ToolResult:
+    """분석 요청 목록을 조회한다. (session_graph_bridge 기준)"""
+    if limit <= 0:
+        limit = 50
+    rows = session_graph_bridge.list_pending(limit)
+    return ToolResult(ok=True, data=[_strip_internal(r) for r in rows])
+
+
+def _strip_internal(rec: dict[str, Any]) -> dict[str, Any]:
+    keep = {
+        "id", "session_id", "source", "status", "created_at",
+        "started_at", "finished_at", "analysis_result", "error",
+    }
+    out = {k: rec.get(k) for k in keep if k in rec}
+    if "context" in rec:
+        out["context"] = rec["context"]
+    return out
