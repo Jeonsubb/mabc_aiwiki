@@ -47,14 +47,33 @@ def _resolve_base() -> _Path:
     # 최후의 fallback
     return _Path.cwd().resolve()
 
-
 BASE = _resolve_base()
-SAMPLES_DIR = BASE / "samples" / "sessions"
-EXTRACTION_DIR = BASE / "extraction_output_sessions"
-CONCEPT_DIR = BASE / "concept_output_sessions"
-CONNECTIONS_DIR = BASE / "connections"
-CONNECTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
+def _user_dir(user_id: str) -> _Path:
+    """사용자별 데이터 디렉토리.
+
+    실제 서비스에서는 사용자별로 저장/조회/후보 탐색이 분리되어야 하므로,
+    BASE 아래에 사용자별 경로를 사용한다.
+    """
+    if not user_id:
+        return BASE
+    return BASE / "users" / user_id
+
+def SAMPLES_DIR(user_id: str = "") -> _Path:
+    return _user_dir(user_id) / "samples" / "sessions"
+
+def EXTRACTION_DIR(user_id: str = "") -> _Path:
+    return _user_dir(user_id) / "extraction_output_sessions"
+
+def CONCEPT_DIR(user_id: str = "") -> _Path:
+    return _user_dir(user_id) / "concept_output_sessions"
+
+def CONNECTIONS_DIR(user_id: str = "") -> _Path:
+    d = _user_dir(user_id) / "connections"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+LOG = BASE / "session_graph_api.log"
 LOG = BASE / "session_graph_api.log"
 
 # ---------------------------------------------------------------------------
@@ -97,9 +116,9 @@ def save_jsonl_record(path, rec: Dict) -> None:
 # ---------------------------------------------------------------------------
 # 세션 원문 저장
 # ---------------------------------------------------------------------------
-def save_session_original_latest(session_id: str, original_text: str) -> Path:
+def save_session_original_latest(session_id: str, original_text: str, user_id: str = "") -> Path:
     """세션 원문을 최신 1레코드만 유지하도록 저장(이전 레코드 제거)."""
-    path = SAMPLES_DIR / f"{session_id}.jsonl"
+    path = SAMPLES_DIR(user_id) / f"{session_id}.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     rec = {
         "id": session_id,
@@ -114,9 +133,9 @@ def save_session_original_latest(session_id: str, original_text: str) -> Path:
     return path
 
 
-def _current_extraction_path(session_id: str) -> Optional[Path]:
+def _current_extraction_path(session_id: str, user_id: str = "") -> Optional[Path]:
     """현재 원문에 대응하는 추출 결과 파일 경로를 반환."""
-    now_hash = compute_text_hash(_current_original_text(session_id))
+    now_hash = compute_text_hash(_current_original_text(session_id, user_id))
     if not now_hash:
         return None
     for d in _list_extraction_dirs(session_id):
@@ -131,9 +150,9 @@ def _current_extraction_path(session_id: str) -> Optional[Path]:
     return None
 
 
-def _current_concept_csv_path(session_id: str) -> Optional[Path]:
+def _current_concept_csv_path(session_id: str, user_id: str = "") -> Optional[Path]:
     """현재 원문에 대응하는 개념 CSV 경로를 반환(추출 결과와 동일 워크스페이스 우선)."""
-    ext_path = _current_extraction_path(session_id)
+    ext_path = _current_extraction_path(session_id, user_id)
     if ext_path is None:
         return None
     # 추출 결과 워크스페이스명 결정: extraction_output_sessions/<ws>/kg_extraction/<file>
@@ -149,9 +168,9 @@ def _current_concept_csv_path(session_id: str) -> Optional[Path]:
     return None
 
 
-def _current_graphml_path(session_id: str) -> Optional[Path]:
+def _current_graphml_path(session_id: str, user_id: str = "") -> Optional[Path]:
     """현재 원문에 대응하는 GraphML 경로를 반환."""
-    ext_path = _current_extraction_path(session_id)
+    ext_path = _current_extraction_path(session_id, user_id)
     if ext_path is None:
         return None
     ws_name = ext_path.parent.parent.name
@@ -161,7 +180,7 @@ def _current_graphml_path(session_id: str) -> Optional[Path]:
     return None
 
 
-def _session_analysis_ok(session_id: str) -> bool:
+def _session_analysis_ok(session_id: str, user_id: str = "") -> bool:
     """현재 최신 원문에 대응하는 추출/개념/GraphML이 모두 있는지 확인.
 
     - 최신 원문 해시와 일치하는 추출 결과가 있으면 추출 OK
@@ -169,7 +188,7 @@ def _session_analysis_ok(session_id: str) -> bool:
     - GraphML(kg_with_concept.graphml)이 있으면 GraphML OK
     셋 다 만족하면 True, 하나라도 없으면 False.
     """
-    text = _current_original_text(session_id)
+    text = _current_original_text(session_id, user_id)
     if not text:
         return False
     h = compute_text_hash(text)
@@ -179,10 +198,10 @@ def _session_analysis_ok(session_id: str) -> bool:
     # 추출 결과 해시가 현재 원문과 다르면 대응 결과가 아님
     if compute_text_hash(extraction.get("original_text", "")) != h:
         return False
-    csv_source = _resolve_concept_csv_source(session_id)
+    csv_source = _resolve_concept_csv_source(session_id, user_id)
     if not csv_source:
         return False
-    graphml_source = _resolve_graphml_source(session_id)
+    graphml_source = _resolve_graphml_source(session_id, user_id)
     if not graphml_source:
         return False
     return True
@@ -253,10 +272,10 @@ def run_extraction(session_id: str) -> Optional[Path]:
     from atlas_rag.kg_construction.triple_extraction import KnowledgeGraphExtractor
     from atlas_rag.kg_construction.triple_config import ProcessingConfig
 
-    current_text = _current_original_text(session_id)
+    current_text = _current_original_text(session_id, user_id)
     current_hash = compute_text_hash(current_text) if current_text else None
 
-    ext_ws = EXTRACTION_DIR / session_id
+    ext_ws = EXTRACTION_DIR(user_id) / session_id
     kg_dir = ext_ws / "kg_extraction"
     kg_dir.mkdir(parents=True, exist_ok=True)
 
@@ -364,7 +383,7 @@ def _run_concept_body(session_id: str, extraction_result_path: Path) -> Optional
     sys.path.insert(0, str(BASE))
     from csv_to_graphml_multidigraph import make_graphml
 
-    con_ws = CONCEPT_DIR / session_id
+    con_ws = CONCEPT_DIR(user_id) / session_id
     con_ws.mkdir(parents=True, exist_ok=True)
 
     paths = {
@@ -711,21 +730,21 @@ def _pick_extraction_result(files: List[Path], expected_text_hash: Optional[str]
     return files[0]
 
 
-def _list_extraction_dirs(session_id: str):
+def _list_extraction_dirs(session_id: str, user_id: str = ""):
     """세션ID 기본 워크스페이스 + fresh 워크스페이스 목록 반환."""
-    yield EXTRACTION_DIR / session_id / "kg_extraction"
-    for p in sorted(EXTRACTION_DIR.glob(f"{session_id}_fresh_*")):
+    yield EXTRACTION_DIR(user_id) / session_id / "kg_extraction"
+    for p in sorted(EXTRACTION_DIR(user_id).glob(f"{session_id}_fresh_*")):
         yield p / "kg_extraction"
 
 
-def _list_concept_dirs(session_id: str):
-    yield CONCEPT_DIR / session_id
-    for p in sorted(CONCEPT_DIR.glob(f"{session_id}_fresh_*")):
+def _list_concept_dirs(session_id: str, user_id: str = ""):
+    yield CONCEPT_DIR(user_id) / session_id
+    for p in sorted(CONCEPT_DIR(user_id).glob(f"{session_id}_fresh_*")):
         yield p
 
 
-def _list_graphml_paths(session_id: str):
-    for cd in _list_concept_dirs(session_id):
+def _list_graphml_paths(session_id: str, user_id: str = ""):
+    for cd in _list_concept_dirs(session_id, user_id):
         yield cd / "kg_with_concept.graphml"
 
 
@@ -744,7 +763,7 @@ def _load_extraction_result(session_id: str) -> Optional[Dict]:
     if not candidates:
         return None
     # 원문 해시 있는 경우 일치 우선
-    now_hash = compute_text_hash(_current_original_text(session_id))
+    now_hash = compute_text_hash(_current_original_text(session_id, user_id))
     if now_hash:
         for f, data in candidates:
             text = data.get("original_text", "")
@@ -754,8 +773,8 @@ def _load_extraction_result(session_id: str) -> Optional[Dict]:
     return candidates[0][1]
 
 
-def _current_original_text(session_id: str) -> str:
-    path = SAMPLES_DIR / f"{session_id}.jsonl"
+def _current_original_text(session_id: str, user_id: str = "") -> str:
+    path = SAMPLES_DIR(user_id) / f"{session_id}.jsonl"
     records = load_jsonl_records(path)
     if records:
         return records[0].get("original_text", "")
@@ -768,7 +787,7 @@ def _load_concept_triple_edges(session_id: str) -> List[Dict]:
     개념 CSV 자체에는 원문 해시가 없으므로, 같은 워크스페이스에 있는 추출 결과의
     원문 해시가 현재 원문과 일치하는 워크스페이스의 CSV를 우선 사용한다.
     """
-    now_hash = compute_text_hash(_current_original_text(session_id))
+    now_hash = compute_text_hash(_current_original_text(session_id, user_id))
     best: Optional[Path] = None
     best_ws_hash: Optional[str] = None
     for cd in _list_concept_dirs(session_id):
@@ -823,33 +842,33 @@ def _workspace_extraction_hash(session_id: str, concept_ws: Path) -> Optional[st
         return None
 
 
-def _extraction_workspace_name(extraction_path: Optional[Path]) -> Optional[str]:
+def _extraction_workspace_name(extraction_path: Optional[Path], user_id: str = "") -> Optional[str]:
     """추출 결과 파일 경로에서 워크스페이스명을 추출."""
     if extraction_path is None:
         return None
     try:
-        rel = extraction_path.relative_to(EXTRACTION_DIR)
+        rel = extraction_path.relative_to(EXTRACTION_DIR(user_id))
         return rel.parts[0]
     except ValueError:
         return None
 
 
-def _concept_ws_by_name(ws_name: str) -> Optional[Path]:
+def _concept_ws_by_name(ws_name: str, user_id: str = "") -> Optional[Path]:
     """개념 워크스페이스명으로 개념 디렉토리를 찾는다."""
-    candidate = CONCEPT_DIR / ws_name
+    candidate = CONCEPT_DIR(user_id) / ws_name
     if candidate.exists() and (candidate / "concept_csv_processed").exists():
         return candidate
     return None
 
 
-def _current_session_analysis_paths(session_id: str) -> Dict[str, Any]:
+def _current_session_analysis_paths(session_id: str, user_id: str = "") -> Dict[str, Any]:
     """현재 원문에 대응하는 추출·개념·GraphML을 한 묶음으로 반환.
 
     - extraction_data + extraction_path: 현재 원문과 해시 일치하는 추출 결과
     - concept_edges + concept_csv_path: 현재 원문에 대응하는 개념 CSV
     - graphml + graphml_path: 현재 원문에 대응하는 GraphML
     """
-    text = _current_original_text(session_id)
+    text = _current_original_text(session_id, user_id)
     now_hash = compute_text_hash(text) if text else None
     if not text:
         return {
@@ -956,10 +975,10 @@ def _current_session_analysis_paths(session_id: str) -> Dict[str, Any]:
     }
 
 
-def _list_extraction_results(session_id: str) -> List[Tuple[Path, Dict]]:
+def _list_extraction_results(session_id: str, user_id: str = "") -> List[Tuple[Path, Dict]]:
     """현재 원문과 무관하게, 유효한 추출 결과 (파일, 데이터) 목록을 반환."""
     results = []
-    for d in _list_extraction_dirs(session_id):
+    for d in _list_extraction_dirs(session_id, user_id):
         files = sorted(d.glob(f"*{session_id}*.json"))
         for f in files:
             try:
@@ -1021,16 +1040,16 @@ def _resolve_extraction_source(session_id: str) -> Optional[str]:
     return None
 
 
-def _resolve_concept_csv_source(session_id: str) -> Optional[str]:
-    for cd in _list_concept_dirs(session_id):
+def _resolve_concept_csv_source(session_id: str, user_id: str = "") -> Optional[str]:
+    for cd in _list_concept_dirs(session_id, user_id):
         p = cd / "concept_csv_processed" / "full_concept_triple_edges.csv"
         if p.exists():
             return str(p)
     return None
 
 
-def _resolve_graphml_source(session_id: str) -> Optional[str]:
-    for gp in _list_graphml_paths(session_id):
+def _resolve_graphml_source(session_id: str, user_id: str = "") -> Optional[str]:
+    for gp in _list_graphml_paths(session_id, user_id):
         if gp.exists():
             return str(gp)
     return None
@@ -1511,14 +1530,14 @@ def get_session_graph(session_id_filter: Optional[str] = None) -> Dict[str, Any]
     - 새 연결 함수 호출은 하지 않음(조회 전용)
     """
     nodes = []
-    sessions = sorted([p.stem for p in SAMPLES_DIR.glob("*.jsonl")])
+    sessions = sorted([p.stem for p in SAMPLES_DIR().glob("*.jsonl")])
     if session_id_filter:
         sessions = [s for s in sessions if s == session_id_filter or s.startswith(session_id_filter)]
 
     # 노드별 현재 원문 해시 계산 + 현재 버전 분석 경로 반영
     current_hashes = {}
     for sid in sessions:
-        path = SAMPLES_DIR / f"{sid}.jsonl"
+        path = SAMPLES_DIR() / f"{sid}.jsonl"
         records = load_jsonl_records(path)
         text = records[0].get("original_text", "") if records else ""
         current_hashes[sid] = compute_text_hash(text) if text else None
@@ -1534,11 +1553,11 @@ def get_session_graph(session_id_filter: Optional[str] = None) -> Dict[str, Any]
             "graphml_path": analysis["graphml_path"],
             "has_extraction": bool(analysis["extraction_path"]),
             "has_concept_graphml": bool(analysis["graphml_path"]),
-            "has_connections": bool(list(CONNECTIONS_DIR.glob(f"{sid}_*_connections_*.json"))),
+            "has_connections": bool(list(CONNECTIONS_DIR().glob(f"{sid}_*_connections_*.json"))),
         })
 
     # 연결 파일 읽기 (파일 시간 내림차순)
-    conn_files = sorted(CONNECTIONS_DIR.glob("*_connections_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    conn_files = sorted(CONNECTIONS_DIR().glob("*_connections_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     edges_raw = []
     for conn_file in conn_files:
         payload = json.loads(conn_file.read_text(encoding="utf-8"))
@@ -1599,21 +1618,20 @@ def get_session_graph(session_id_filter: Optional[str] = None) -> Dict[str, Any]
 # ---------------------------------------------------------------------------
 # 핵심 워크플로우: ingestion -> 추출/개념화 -> 후보/판단 -> 저장
 # ---------------------------------------------------------------------------
-def ingest_session(session_id: str, original_text: str, run_judgment: bool = True, force_refresh: bool = False) -> Dict[str, Any]:
+def ingest_session(
+    session_id: str,
+    original_text: str,
+    run_judgment: bool = True,
+    force_refresh: bool = False,
+    user_id: str = "",
+) -> Dict[str, Any]:
     """
     새 세션 입력 → 원문 저장/갱신 → AutoSchemaKG 추출 → 개념화 → GraphML 생성 → 후보 탐색 → 판단 → 저장.
 
-    동작:
-    - 처음 입력: samples/sessions/<session_id>.jsonl 저장 후 추출/개념화 수행
-    - 같은 ID로 새 원문: 원문을 최신 1레코드로 갱신하고, 추출/개념화를 새 원문 기준으로 다시 수행
-      (force_refresh=True일 때도 동일 동작)
-    - 재분석 시 기존 결과(EXTRACTION_DIR/<id>, CONCEPT_DIR/<id>)는 보존하고,
-      새 결과는 EXTRACTION_DIR/<id>_fresh_<ts>, CONCEPT_DIR/<id>_fresh_<ts>에 저장.
-    - 중간 실패해도 원문은 갱신된 상태이며, 같은 ID로 재호출 시 재시도 가능.
-    - 연결 저장은 항상 새 파일명(타임스탬프 기반)으로 저장해 기존 결과를 덮어쓰지 않는다.
+    user_id가 제공되면 사용자별 디렉토리에 저장/조회/후보 탐색이 분리된다.
     """
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
-    samples_path = SAMPLES_DIR / f"{session_id}.jsonl"
+    samples_path = SAMPLES_DIR(user_id) / f"{session_id}.jsonl"
 
     # 1. 원문 저장/갱신(항상 최신 1레코드만 유지)
     existing_text = None
@@ -1628,7 +1646,7 @@ def ingest_session(session_id: str, original_text: str, run_judgment: bool = Tru
     else:
         log(f"[ingest] 원문 동일: {session_id}")
 
-    save_session_original_latest(session_id, original_text)
+    save_session_original_latest(session_id, original_text, user_id=user_id)
     log(f"[ingest] 원문 저장/갱신: {samples_path}")
 
     now_text_hash = compute_text_hash(original_text)
@@ -1643,7 +1661,7 @@ def ingest_session(session_id: str, original_text: str, run_judgment: bool = Tru
         from atlas_rag.kg_construction.triple_extraction import KnowledgeGraphExtractor
         from atlas_rag.kg_construction.triple_config import ProcessingConfig
 
-        ext_ws = EXTRACTION_DIR / f"{session_id}_fresh_{ts}"
+        ext_ws = EXTRACTION_DIR(user_id) / f"{session_id}_fresh_{ts}"
         kg_dir = ext_ws / "kg_extraction"
         kg_dir.mkdir(parents=True, exist_ok=True)
         client = OpenAI(base_url="https://api.upstage.ai/v1", api_key=_require_api_key())
@@ -1724,13 +1742,13 @@ def ingest_session(session_id: str, original_text: str, run_judgment: bool = Tru
             if not graphml_path:
                 _mark_extraction_failed(session_id, now_text_hash, str(ext_ws), str(con_ws))
         else:
-            con_ws = CONCEPT_DIR / session_id
+            con_ws = CONCEPT_DIR(user_id) / session_id
             graphml_path = run_concept(session_id, ext_path)
             conceptual_info["graphml_path"] = str(graphml_path) if graphml_path else None
             conceptual_info["status"] = "ok" if graphml_path else "fail"
 
     # 4. 인덱스 구성(새 세션 + 기존 대상 세션 모두 포함)
-    existing_sessions = sorted([p.stem for p in SAMPLES_DIR.glob("*.jsonl")])
+    existing_sessions = sorted([p.stem for p in SAMPLES_DIR(user_id).glob("*.jsonl")])
     all_sessions = sorted(set([session_id] + existing_sessions))
     index = build_session_index(all_sessions)
 
@@ -1823,7 +1841,7 @@ def main():
         return
 
     # 매개변수 없는 실행은 인덱스/조회 테스트
-    index = build_session_index(sorted([p.stem for p in SAMPLES_DIR.glob("*.jsonl")]))
+    index = build_session_index(sorted([p.stem for p in SAMPLES_DIR().glob("*.jsonl")]))
     log(f"인덱스 세션 수: {len(index)}")
     for sid, e in index.items():
         log(f"  {sid}: 원문={len(e['original_text'])} 추출={'O' if e['extraction']['data'] else 'X'} "

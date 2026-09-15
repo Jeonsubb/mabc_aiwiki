@@ -10,6 +10,81 @@ import { db, hashContent } from './db';
 import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
 import { generateCandidatesForRecord, type CandidateGenerationResult } from './services/candidateGenerator';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/* ------------------------------------------------------------------ */
+/* 세션 그래프 분석 요청 기록 (Python 워커와 공유)                     */
+/* ------------------------------------------------------------------ */
+
+function sessionGraphBaseDir(): string {
+  return process.env.MABC_SESSION_GRAPH_BASE ?? path.join(process.env.HOME ?? '/', '.mabc-session-graph');
+}
+
+function sessionGraphQueueFile(): string {
+  return path.join(sessionGraphBaseDir(), 'analysis_queue', 'pending.json');
+}
+
+function ensureSessionGraphQueueFile(): void {
+  const queueFile = sessionGraphQueueFile();
+  const queueDir = path.dirname(queueFile);
+  if (!fs.existsSync(queueDir)) {
+    fs.mkdirSync(queueDir, { recursive: true });
+  }
+  if (!fs.existsSync(queueFile)) {
+    fs.writeFileSync(queueFile, '[]', 'utf-8');
+  }
+}
+
+interface SessionGraphRequestRecord {
+  id: string;
+  userId: string;
+  session_id: string;
+  original_text: string;
+  context: Record<string, unknown>;
+  source: string | null;
+  run_judgment: boolean;
+  status: string;
+  enqueued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
+interface EnqueueSessionGraphAnalysisParams {
+  userId: string;
+  sessionId: string;
+  originalText: string;
+  context: Record<string, unknown>;
+  source?: string | null;
+  runJudgment?: boolean;
+}
+
+function enqueueSessionGraphAnalysis(params: EnqueueSessionGraphAnalysisParams): { requestId: string } {
+  ensureSessionGraphQueueFile();
+  const queueFile = sessionGraphQueueFile();
+  const record: SessionGraphRequestRecord = {
+    id: randomUUID(),
+    userId: params.userId,
+    session_id: params.sessionId,
+    original_text: params.originalText,
+    context: params.context,
+    source: params.source ?? null,
+    run_judgment: params.runJudgment ?? true,
+    status: 'pending',
+    enqueued_at: new Date().toISOString(),
+    started_at: null,
+    finished_at: null,
+    result: null,
+    error: null,
+  };
+
+  const current = JSON.parse(fs.readFileSync(queueFile, 'utf-8')) as SessionGraphRequestRecord[];
+  current.push(record);
+  fs.writeFileSync(queueFile, JSON.stringify(current, null, 2), 'utf-8');
+  return { requestId: record.id };
+}
 
 function normalizeWhitespace(t: string): string {
   return t.replace(/\s+/g, ' ').trim();
@@ -256,6 +331,15 @@ async function handleStoreAndGenerate(
       data: { status: finalStatus, errorMessage },
     });
 
+    const sessionGraphRequestId = enqueueSessionGraphAnalysis({
+      userId,
+      sessionId: session_id,
+      originalText: rawText,
+      context,
+      source,
+      runJudgment: true,
+    });
+
     return {
       content: [
         {
@@ -274,6 +358,10 @@ async function handleStoreAndGenerate(
               sensitiveInfo: candidateResult.sensitiveInfo,
               error: candidateResult.error,
               excluded: candidateResult.excluded,
+            },
+            session_graph_analysis: {
+              requestId: sessionGraphRequestId.requestId,
+              status: 'queued',
             },
           }),
         },

@@ -136,6 +136,53 @@ async def search_wiki(query: str, limit: int = 20) -> dict:
     return _fmt_result(tools.tool_search_wiki(query, limit))
 
 
+# ------------------------------------------------------------------ 세션 그래프 분석 요청
+
+
+@server.tool()
+async def submit_session_for_analysis(
+    session_id: str,
+    original_text: str,
+    source: str,
+    context: dict | None = None,
+) -> dict:
+    """대화 원문을 세션 그래프 분석 큐에 등록한다.
+
+    원문 저장과 분석 요청이 함께 처리된다. 실제 추출/개념화/GraphML/연결 판단은
+    별도 워커가 처리하며, MCP 도구는 요청 등록까지만 담당한다.
+    Solar 미호출 모드에서는 analysis_store를 통해 임시 분석 응답을 나중에 채울 수 있다.
+    """
+    return _fmt_result(
+        tools.tool_submit_session_for_analysis(session_id, original_text, source, context)
+    )
+
+
+@server.tool()
+async def sync_session_graph_analysis(
+    request_id: str,
+    analysis_result: dict,
+) -> dict:
+    """Solar 없이 임시 분석 응답을 기록한다.
+
+    워커가 실제 분석을 수행했거나, 테스트 목적으로 합성 결과를 넣을 때 사용한다.
+    """
+    return _fmt_result(
+        tools.tool_sync_session_graph_analysis(request_id, analysis_result)
+    )
+
+
+@server.tool()
+async def get_session_graph_request(request_id: str) -> dict:
+    """분석 요청 상태를 조회한다."""
+    return _fmt_result(tools.tool_get_session_graph_request(request_id))
+
+
+@server.tool()
+async def list_session_graph_requests(limit: int = 50) -> dict:
+    """분석 요청 목록을 조회한다."""
+    return _fmt_result(tools.tool_list_session_graph_requests(limit))
+
+
 # ------------------------------------------------------------------ 서버 실행
 
 import argparse
