@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type {
   McpCredentialsListResponse,
@@ -112,12 +111,7 @@ export default function McpCredentials() {
 
   return (
     <div>
-      <nav className="inbox-nav">
-        <Link to="/" className="btn btn-ghost">
-          ← 허브
-        </Link>
-      </nav>
-
+      
       <div className="section-head">
         <span className="eyebrow">MCP</span>
         <h2>연결 토큰</h2>

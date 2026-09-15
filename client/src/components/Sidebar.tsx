@@ -3,8 +3,7 @@ import {
   Hexagon,
   Inbox,
   MessageSquare,
-  User,
-  PanelLeft,
+  
   Lightbulb,
   KeyRound
 } from "lucide-react";
@@ -61,31 +60,6 @@ export default function Sidebar() {
         })}
       </div>
 
-      {/* 하단 영역 */}
-      <div className="sidebar-bottom">
-        <button
-          type="button"
-          className="sidebar-item"
-          aria-label="사이드바 접기 (준비중)"
-          data-tooltip="사이드바 접기 — 준비중"
-          disabled
-          aria-disabled="true"
-          style={{ opacity: 0.35, cursor: "not-allowed" }}
-        >
-          <PanelLeft aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="sidebar-user"
-          aria-label="사용자 메뉴 — 준비중"
-          data-tooltip="사용자 메뉴 — 준비중"
-          disabled
-          aria-disabled="true"
-          style={{ opacity: 0.4, cursor: "not-allowed" }}
-        >
-          <User aria-hidden="true" />
-        </button>
-      </div>
-    </nav>
+          </nav>
   );
 }
