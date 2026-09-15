@@ -42,6 +42,7 @@ export interface ChatMessageResponse {
   userMessage?: ChatMessage;
   assistantMessage?: ChatMessage;
   error?: string;
+  pendingUserMessageId?: string | null;
 }
 
 export interface ChatRetryRequest {
@@ -49,10 +50,11 @@ export interface ChatRetryRequest {
 }
 
 export interface ChatRetryResponse {
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'already_answered';
   userMessage?: ChatMessage;
   assistantMessage?: ChatMessage;
   error?: string;
+  pendingUserMessageId?: string | null;
 }
 
 export interface CreateChatResponse {

@@ -59,6 +59,6 @@ export const api = {
   getChatDetail: (id: string) => get<ChatDetailResponse>(`/chats/${id}`),
   sendMessage: (id: string, content: string) =>
     post<ChatMessageResponse>(`/chats/${id}/messages`, { content }),
-  retryMessage: (id: string, pendingUserId: string) =>
-    post<ChatRetryResponse>(`/chats/${id}/retry`, { pendingUserId }),
+  retryMessage: (id: string, messageId: string) =>
+    post<ChatRetryResponse>(`/chats/${id}/retry`, { messageId }),
 };

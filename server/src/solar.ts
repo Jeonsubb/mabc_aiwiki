@@ -1,3 +1,4 @@
+import { formatContextBlock, SearchedWithContext } from './search/chat-context';
 import OpenAI from 'openai';
 import { createHash } from 'crypto';
 
@@ -323,6 +324,23 @@ function arrayOf<T>(v: unknown): T[] {
 
 // ── 챗봇 프롬프트 로딩 (server/src/resources/chatbot-system-prompt.md) ───────
 
+export interface ChatContextBlock {
+  pastMessages: Array<{
+    messageId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    createdAt: string;
+    linkedNode?: { nodeId: string; nodeTitle: string } | null;
+  }>;
+  wikiNodes: Array<{
+    nodeId: string;
+    title: string;
+    summary: string;
+    content: string;
+    linkedMessage?: { messageId: string; chatId: string; content: string; createdAt: string } | null;
+  }>;
+}
+
 function loadChatbotSystemPrompt(): string {
   try {
     const fs = require('fs');
@@ -352,8 +370,9 @@ export interface ChatReplyResult {
   error?: string;
 }
 
-export async function generateChatReply(
+export async function generateChatReplyWithContext(
   messages: ChatMessageRole[],
+  context: SearchedWithContext,
 ): Promise<ChatReplyResult> {
   if (!client) {
     return {
@@ -364,9 +383,10 @@ export async function generateChatReply(
   }
 
   const systemPrompt = loadChatbotSystemPrompt();
+  const contextBlock = formatContextBlock(context);
 
   const payload: ChatMessageRole[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt + (contextBlock ? '\n\n' + contextBlock : '') },
     ...messages,
   ];
 

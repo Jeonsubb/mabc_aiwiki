@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { requireAuth } from '../middleware/auth';
-import { generateChatReply, type ChatMessageRole } from '../solar';
+import { generateChatReplyWithContext, type ChatMessageRole } from '../solar';
+import { buildChatWithContext, detectSearchIntent } from '../search/chat-context';
 
 export const chatsRouter = Router();
 
@@ -173,7 +174,14 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
       select: { id: true, role: true, content: true, createdAt: true },
     });
 
-    // 2. 채팅방 기존 메시지 불러오기 (전달용)
+    // 2. Solar용 채팅 맥락(검색 맥락 포함) 빌드: 사용자 전체 대화방 기준
+    const { context } = await buildChatWithContext(trimmed, { userId });
+
+    // 방금 보낸 질문 자체는 검색 근거에서 제외
+    const excMsgIds = new Set([userMessage.id]);
+    context.pastMessages = context.pastMessages.filter((m) => !excMsgIds.has(m.messageId));
+
+    // Solar 프롬프트용 대화 목록(이 채팅방의 기존 메시지)
     const existingMessages = await db.chatMessage.findMany({
       where: { chatId },
       orderBy: { createdAt: 'asc' },
@@ -181,7 +189,10 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
     });
 
     // 3. Solar 호출
-    const reply = await generateChatReply(existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+    const reply = await generateChatReplyWithContext(
+      existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      context,
+    );
 
     if (reply.status !== 'success' || reply.content.length === 0) {
       // 사용자 메시지는 이미 저장되어 있으므로 보존, AI 답변 실패로 응답
@@ -272,10 +283,10 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
     }
 
     if (target.retryStatus === 'done') {
-      return res.status(409).json({
-        status: 'error',
-        error: '이미 답변이 완료된 메시지',
+      return res.status(200).json({
+        status: 'already_answered',
         userMessage: target,
+        pendingUserMessageId: null,
       });
     }
 
@@ -305,6 +316,13 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
       });
     }
 
+    // 재시도 대상 메시지 기준 Solar용 채팅 맥락(검색 맥락 포함) 빌드
+    const { context } = await buildChatWithContext(target.content, { userId });
+
+    // 재시도 대상 메시지 자체는 과거 대화 검색 근거에서 제외
+    const excMsgIds = new Set([target.id]);
+    context.pastMessages = context.pastMessages.filter((m) => !excMsgIds.has(m.messageId));
+
     // 재시도 대상 메시지 기준으로 이전 메시지까지 가져와서 Solar 호출
     const existingMessages = await db.chatMessage.findMany({
       where: { chatId, createdAt: { lte: target.createdAt } },
@@ -312,7 +330,10 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
       select: { role: true, content: true, createdAt: true },
     });
 
-    const reply = await generateChatReply(existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+    const reply = await generateChatReplyWithContext(
+      existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      context,
+    );
 
     if (reply.status !== 'success' || reply.content.length === 0) {
       // 실패: 대상 메시지 상태를 failed로 (processing 남기지 않음)

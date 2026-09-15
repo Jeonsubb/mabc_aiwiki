@@ -3,7 +3,7 @@ import { nodesRouter } from './nodes';
 import { proposalsRouter } from './proposals';
 import { recordsRouter } from './records';
 import { chatsRouter } from './chats';
-import { searchRouter } from './search';
+import { searchRouter } from '../search/routes';
 
 
 const router = Router();
