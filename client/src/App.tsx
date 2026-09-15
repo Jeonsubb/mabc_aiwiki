@@ -13,6 +13,7 @@ import Inbox from "./pages/Inbox";
 import LoginPage from "./pages/LoginPage";
 import McpCredentials from "./pages/McpCredentials";
 import SearchPage from "./pages/SearchPage";
+import PagePlaceholder from "./pages/PagePlaceholder";
 
 export default function App({
   user,

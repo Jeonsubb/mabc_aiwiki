@@ -28,7 +28,7 @@ useEffect(() => {
 
 
 
-  const [detailView, setDetailView] = useState<{ kind: "thought"; thought: { id: string; title: string; summary: string; source: string; type: "node" } | null }>({
+  const [detailView, setDetailView] = useState<{ kind: "thought"; thought: Thought | null }>({
     kind: "thought",
     thought: null,
   });
@@ -50,6 +50,7 @@ useEffect(() => {
                 summary: "샘플이라 대화 원문이 없습니다",
                 source: "",
                 type: "node",
+                content: "",
               } : null);
             }}
           />

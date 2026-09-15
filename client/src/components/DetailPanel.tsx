@@ -91,7 +91,7 @@ export default function DetailPanel({ thought }: DetailPanelProps) {
 
           <div className="detail-section">
             <div className="detail-section-head">
-              <Link size={14} aria-hidden="true" />
+              <LinkIcon size={14} aria-hidden="true" />
               <span>연결</span>
               <span className="detail-section-dev">개발 미리보기</span>
             </div>
