@@ -39,7 +39,7 @@ export default function ProposalsList() {
   if (loading) return <p className="hint">불러오는 중...</p>;
 
   return (
-    <div>
+    <div className="container">
       <h2>제안 목록</h2>
       <p className="hint">
         대화에서 발견한 위키 초안과 갱신 제안입니다. 수락한 것만 위키에 반영됩니다.

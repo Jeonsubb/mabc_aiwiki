@@ -63,7 +63,7 @@ function currentPageForPath(): string {
   if (p === "/") return "생각 지도";
   if (p.startsWith("/chats/")) return "대화방";
 
-  if (p === "/chats") return "대화방";
+  if (p === "/chats") return "대화";
   if (p === "/login") return "로그인";
   if (p.startsWith("/node/")) return "생각";
   if (p === "/proposals") return "제안 목록";

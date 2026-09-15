@@ -110,7 +110,7 @@ export default function McpCredentials() {
   };
 
   return (
-    <div>
+    <div className="container">
       
       <div className="section-head">
         <span className="eyebrow">MCP</span>
