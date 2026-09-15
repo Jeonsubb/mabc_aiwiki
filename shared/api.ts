@@ -35,8 +35,27 @@ export interface RegisterResponse {
   };
 }
 
-export interface LogoutResponse {
-  ok: boolean;
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+}
+
+export interface AuthSession {
+  user: AuthUser | null;
+  loading: boolean;
+  logout: () => Promise<void>;
+}
+
+let _authSession: AuthSession | null = null;
+
+export function getAuthSession(): AuthSession | null {
+  return _authSession;
+}
+
+export function setAuthSession(session: AuthSession | null): void {
+  _authSession = session;
 }
 
 export interface WikiNode {
