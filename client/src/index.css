@@ -2140,3 +2140,15 @@ code, pre {
   border-color: var(--border-strong);
   background: var(--surface-panel-raised);
 }
+
+/* ---------- 페이지 여백·카드 간격 통일 ---------- */
+.page-body > .container { padding-top: var(--sp-xl); padding-bottom: var(--sp-3xl); }
+.container > h2 { margin: 0 0 var(--sp-xs); }
+.container > h2 + .hint { margin: 0 0 var(--sp-lg); }
+.container > h3 { margin: var(--sp-xl) 0 var(--sp-sm); font-size: var(--text-md); color: var(--text-secondary); }
+.container > .card + .card { margin-top: var(--sp-md); }
+.card > p { margin: var(--sp-xs) 0; }
+.card .badge + .hint { margin-left: var(--sp-sm); }
+.card .badge + .badge { margin-left: var(--sp-xxs); }
+.card > .btn { margin-top: var(--sp-sm); margin-right: var(--sp-sm); }
+.card > a > strong { font-size: var(--text-md); color: var(--text-primary); }
