@@ -8,6 +8,7 @@ function statusLabel(status: string) {
   if (status === '후보생성중') return <span className="badge badge-warm">후보 생성 중</span>;
   if (status === '제안됨') return <span className="badge badge-green">제안됨</span>;
   if (status === '처리됨') return <span className="badge badge-success">처리됨</span>;
+  if (status === '제안 없음') return <span className="badge badge-warm">제안 없음</span>;
   if (status === '실패') return <span className="badge badge-error">실패</span>;
   if (status === '처리중') return <span className="badge badge-warm">처리 중</span>;
   return <span className="badge">{status}</span>;
