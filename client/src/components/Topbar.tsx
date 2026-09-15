@@ -59,35 +59,7 @@ export default function Topbar({ currentPage, user, onLogout }: TopbarProps) {
         </div>
 
         {user ? (
-          <button
-            type="button"
-            className="topbar-user-btn"
-            aria-label="사용자 메뉴 — 계정, 설정, 로그아웃"
-            aria-haspopup="menu"
-            onClick={undefined}
-          >
-            <button type="button" className="btn btn-ghost" onClick={onLogout}>
-              로그아웃
-            </button>
-            <User aria-hidden="true" />
-            <span
-              style={{
-                fontSize: "var(--text-sm)",
-                color: "var(--text-secondary)",
-                maxWidth: "140px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {user.email.split("@")[0]}
-            </span>
-            <ChevronDown
-              size={13}
-              aria-hidden="true"
-              style={{ color: "var(--text-muted)", flexShrink: 0 }}
-            />
-          </button>
+          <span className="topbar-user-name">{user.name || user.email}</span>
         ) : (
           <Link to="/login" className="topbar-login-btn">
             로그인
