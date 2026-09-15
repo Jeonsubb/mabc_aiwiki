@@ -113,7 +113,7 @@ recordsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
     const createdProposals = candidateResult.proposals;
 
     if (candidateResult.status === 'success') {
-      recordStatus = '처리됨';
+      recordStatus = createdProposals.length > 0 ? '처리됨' : '제안 없음';
 
       if (candidateResult.sensitiveInfo.hasSensitiveInfo) {
         errorMessage =

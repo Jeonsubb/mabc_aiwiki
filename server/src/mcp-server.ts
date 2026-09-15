@@ -10,6 +10,81 @@ import { db, hashContent } from './db';
 import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
 import { generateCandidatesForRecord, type CandidateGenerationResult } from './services/candidateGenerator';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/* ------------------------------------------------------------------ */
+/* 세션 그래프 분석 요청 기록 (Python 워커와 공유)                     */
+/* ------------------------------------------------------------------ */
+
+function sessionGraphBaseDir(): string {
+  return process.env.MABC_SESSION_GRAPH_BASE ?? path.join(process.env.HOME ?? '/', '.mabc-session-graph');
+}
+
+function sessionGraphQueueFile(): string {
+  return path.join(sessionGraphBaseDir(), 'analysis_queue', 'pending.json');
+}
+
+function ensureSessionGraphQueueFile(): void {
+  const queueFile = sessionGraphQueueFile();
+  const queueDir = path.dirname(queueFile);
+  if (!fs.existsSync(queueDir)) {
+    fs.mkdirSync(queueDir, { recursive: true });
+  }
+  if (!fs.existsSync(queueFile)) {
+    fs.writeFileSync(queueFile, '[]', 'utf-8');
+  }
+}
+
+interface SessionGraphRequestRecord {
+  id: string;
+  userId: string;
+  session_id: string;
+  original_text: string;
+  context: Record<string, unknown>;
+  source: string | null;
+  run_judgment: boolean;
+  status: string;
+  enqueued_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+}
+
+interface EnqueueSessionGraphAnalysisParams {
+  userId: string;
+  sessionId: string;
+  originalText: string;
+  context: Record<string, unknown>;
+  source?: string | null;
+  runJudgment?: boolean;
+}
+
+function enqueueSessionGraphAnalysis(params: EnqueueSessionGraphAnalysisParams): { requestId: string } {
+  ensureSessionGraphQueueFile();
+  const queueFile = sessionGraphQueueFile();
+  const record: SessionGraphRequestRecord = {
+    id: randomUUID(),
+    userId: params.userId,
+    session_id: params.sessionId,
+    original_text: params.originalText,
+    context: params.context,
+    source: params.source ?? null,
+    run_judgment: params.runJudgment ?? true,
+    status: 'pending',
+    enqueued_at: new Date().toISOString(),
+    started_at: null,
+    finished_at: null,
+    result: null,
+    error: null,
+  };
+
+  const current = JSON.parse(fs.readFileSync(queueFile, 'utf-8')) as SessionGraphRequestRecord[];
+  current.push(record);
+  fs.writeFileSync(queueFile, JSON.stringify(current, null, 2), 'utf-8');
+  return { requestId: record.id };
+}
 
 function normalizeWhitespace(t: string): string {
   return t.replace(/\s+/g, ' ').trim();
@@ -155,7 +230,7 @@ async function handleStoreAndGenerate(
       select: { id: true, type: true },
     });
 
-    if (proposals.length > 0) {
+  if (proposals.length > 0 && existingRecord.status === '처리됨') {
       return {
         content: [
           {
@@ -175,23 +250,100 @@ async function handleStoreAndGenerate(
       };
     }
 
+    if (existingRecord.status === '실패' && proposals.length === 0) {
+  const claimed = await db.record.updateMany({
+    where: { id: existingRecord.id, status: '실패' },
+    data: {
+      status: '처리중',
+      retryCount: { increment: 1 },
+      errorMessage: null,
+    },
+  });
+
+  if (claimed.count !== 1) {
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            conversation_id: existingRecord.id,
-            stored_at: existingRecord.createdAt.toISOString(),
-            duplicated: true,
-            status: existingRecord.status,
-            generated: false,
-            retryable: true,
-            note: '보관된 대화지만 후보 생성이 완료되지 않았습니다. 동일 내용으로 재호출하면 후보 생성을 다시 시도합니다.',
-          }),
-        },
-      ],
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        duplicated: true,
+        status: '처리중',
+        generated: false,
+        retryable: false,
+        note: '이미 재처리 중입니다.',
+      }) }],
     };
   }
+
+  try {
+    const result = await generateCandidatesForRecord(userId, existingRecord.id);
+    const generated = result.status === 'success' && result.proposals.length > 0;
+    const status = result.status === 'success'
+      ? (generated ? '처리됨' : '제안 없음')
+      : '실패';
+
+    await db.record.update({
+      where: { id: existingRecord.id },
+      data: {
+        status,
+        errorMessage: result.status === 'success' ? null : result.error ?? '후보 생성 실패',
+      },
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        stored_at: existingRecord.createdAt.toISOString(),
+        duplicated: true,
+        status,
+        generated,
+        proposals: result.proposals,
+        retryable: status === '실패',
+        candidate: {
+          status: result.status,
+          proposals: result.proposals,
+          excluded: result.excluded,
+          error: result.error,
+        },
+      }) }],
+    };
+  } catch (err) {
+    await db.record.update({
+      where: { id: existingRecord.id },
+      data: {
+        status: '실패',
+        errorMessage: err instanceof Error ? err.message : '재처리 오류',
+      },
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        duplicated: true,
+        status: '실패',
+        generated: false,
+        retryable: true,
+        error: '후보 재처리 중 오류가 발생했습니다.',
+      }) }],
+    };
+  }
+}
+
+return {
+  content: [{ type: 'text', text: JSON.stringify({
+    conversation_id: existingRecord.id,
+    stored_at: existingRecord.createdAt.toISOString(),
+    duplicated: true,
+    status: existingRecord.status,
+    generated: existingRecord.status === '처리됨' && proposals.length > 0,
+    proposals,
+    retryable: false,
+    note: existingRecord.status === '처리중'
+      ? '이미 처리 중입니다.'
+      : '현재 기록은 자동 재처리 대상이 아닙니다.',
+  }) }],
+};
+  }
+
+let createdRecordId: string | null = null;
 
   try {
     const record = await db.$transaction(async (tx) => {
@@ -242,18 +394,29 @@ async function handleStoreAndGenerate(
 
       return created;
     });
-
+    createdRecordId = record.id;
     const candidateResult = await generateCandidatesForRecord(userId, record.id);
 
     const proposals = candidateResult.proposals;
     const generated = candidateResult.status === 'success' && proposals.length > 0;
-    const finalStatus = candidateResult.status === 'success' ? '처리됨' : '실패';
+    const finalStatus = candidateResult.status === 'success'
+      ? (generated ? '처리됨' : '제안 없음')
+      : '실패';
     const errorMessage =
       candidateResult.status === 'success' ? undefined : candidateResult.error;
 
     await db.record.update({
       where: { id: record.id },
       data: { status: finalStatus, errorMessage },
+    });
+
+    const sessionGraphRequestId = enqueueSessionGraphAnalysis({
+      userId,
+      sessionId: session_id,
+      originalText: rawText,
+      context,
+      source,
+      runJudgment: true,
     });
 
     return {
@@ -275,11 +438,38 @@ async function handleStoreAndGenerate(
               error: candidateResult.error,
               excluded: candidateResult.excluded,
             },
+            session_graph_analysis: {
+              requestId: sessionGraphRequestId.requestId,
+              status: 'queued',
+            },
           }),
         },
       ],
     };
   } catch (err) {
+     if (createdRecordId) {
+      const proposalCount = await db.proposal.count({
+        where: { relatedRecordId: createdRecordId },
+      });
+
+      await db.record.update({
+        where: { id: createdRecordId },
+        data: {
+          status: '실패',
+          errorMessage: err instanceof Error ? err.message : '후보 생성 오류',
+        },
+      });
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          conversation_id: createdRecordId,
+          status: '실패',
+          generated: false,
+          retryable: proposalCount === 0,
+          error: '후보 생성 중 오류가 발생했습니다.',
+        }) }],
+      };
+    }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existingRecord = await db.record.findUnique({
         where: { user_content_hash_unique: { userId, contentHash } },

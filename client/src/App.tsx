@@ -2,18 +2,17 @@ import ChatsListPage from './pages/ChatsListPage';
 import ChatPage from './pages/ChatPage';
 import OrbitOnly from './pages/OrbitOnly';
 import { useState, useEffect } from "react";
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Routes, Route, Link, useNavigate, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import MindMapPage from "./pages/MindMapPage";
-import Hub from "./pages/Hub";
 import NodePage from "./pages/Node";
 import ProposalPage from "./pages/Proposal";
 import ProposalsList from "./pages/ProposalsList";
 import Inbox from "./pages/Inbox";
 import LoginPage from "./pages/LoginPage";
 import McpCredentials from "./pages/McpCredentials";
-
+import SearchPage from "./pages/SearchPage";
 
 export default function App({
   user,
@@ -46,12 +45,13 @@ export default function App({
               <Route path="/records" element={<Inbox />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/credentials" element={<McpCredentials />} />
-              <Route path="/discovery" element={<PagePlaceholder title="재발견" />} />
-              <Route path="/journal" element={<PagePlaceholder title="주간 기록" />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/chats" element={<ChatsListPage />} />
               <Route path="/chats/:id" element={<ChatPage />} />
               <Route path="/kept" element={<PagePlaceholder title="간직한 생각" />} />
               <Route path="/graph" element={<OrbitOnly />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+              
             </Routes>
           </div>
         </main>
@@ -65,44 +65,15 @@ export default function App({
 function currentPageForPath(): string {
   const p = typeof window !== "undefined" ? window.location.pathname : "/";
   if (p === "/") return "생각 지도";
-  if (p === "/discovery") return "재발견";
-  if (p === "/journal") return "주간 기록";
-  
   if (p.startsWith("/chats/")) return "대화방";
 
-  if (p === "/chats") return "대화방";
-  if (p === "/kept") return "간직한 생각";
+  if (p === "/chats") return "대화";
   if (p === "/login") return "로그인";
   if (p.startsWith("/node/")) return "생각";
   if (p === "/proposals") return "제안 목록";
   if (p.startsWith("/proposal/")) return "제안";
   if (p === "/records") return "유입 기록";
   if (p === "/credentials") return "MCP 연결";
+  if (p === "/search") return "검색";
   return "생각 지도";
-}
-
-
-function PagePlaceholder({ title }: { title: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "var(--sp-md)",
-        height: "100%",
-        color: "var(--text-muted)",
-        padding: "var(--sp-xl)",
-        textAlign: "center",
-      }}
-    >
-      <p style={{ margin: 0, fontSize: "var(--text-lg)", color: "var(--text-secondary)" }}>
-        {title}
-      </p>
-      <p style={{ margin: 0, fontSize: "var(--text-sm)" }}>
-        준비중인 영역입니다
-      </p>
-    </div>
-  );
 }

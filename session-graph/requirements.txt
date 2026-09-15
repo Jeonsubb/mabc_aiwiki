@@ -1,0 +1,11 @@
+# 세션 그래프 ingestion + 개념화 + GraphML 생성용 실행 환경
+# 통합 폴더에서 venv 재설치 후 사용
+
+# HTTP/API
+openai==3.13.0
+
+# 그래프/데이터
+networkx==3.6.1
+
+# 패키징/실행 기준 고정 버전
+atlas-rag==0.0.5.post1

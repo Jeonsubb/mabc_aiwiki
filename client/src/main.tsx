@@ -58,13 +58,54 @@ function Root() {
         setAuthSession(empty);
       }
     } else {
-      const empty: AuthSession = {
-        user: null,
-        loading: false,
-        logout: () => Promise.resolve(),
-      };
-      setSessionState(empty);
-      setAuthSession(empty);
+      api.login({ email: "demo@mabc.local", password: "demo1234" })
+        .then((rse) => {
+          try {
+            localStorage.setItem("user", JSON.stringify(rse.user));
+          } catch {}
+          const user = rse.user as {
+            id: string;
+            email: string;
+            name?: string;
+            role?: string;
+          };
+          const session: AuthSession = {
+            user,
+            loading: false,
+            logout: async () => {
+              try {
+                await api.logout();
+              } catch {
+                // 서버 로그아웃 실패해도 로컬 상태는 정리
+              }
+              localStorage.removeItem("user");
+              setSessionState({
+                user: null,
+                loading: false,
+                logout: () => Promise.resolve(),
+              });
+              setAuthSession({
+                user: null,
+                loading: false,
+                logout: () => Promise.resolve(),
+              });
+              window.dispatchEvent(
+                new CustomEvent("login-state-changed", { detail: null })
+              );
+            },
+          };
+          setSessionState(session);
+          setAuthSession(session);
+        })
+        .catch(() => {
+          const empty: AuthSession = {
+            user: null,
+            loading: false,
+            logout: () => Promise.resolve(),
+          };
+          setSessionState(empty);
+          setAuthSession(empty);
+        });
     }
   }, []);
 

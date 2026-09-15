@@ -49,16 +49,43 @@ def _fmt_result(result: ToolResult) -> dict:
 @server.tool()
 async def submit_conversation(
     session_id: str,
-    conversation_text: str,
-    context: dict,
+    conversation_text: str | None = None,
+    context: dict | None = None,
+    messages: list[dict] | None = None,
+    source: str | None = None,
 ) -> dict:
     """[위키 저장용] 사용자가 지정한 대화 구간+맥락을 원본 보관 영역에 전달한다.
+
+    입력은 두 방식 중 하나로 줄 수 있다.
+      - messages: 역할이 구분된 메시지 목록(role, content 필수 / record_id, timestamp 선택)
+      - conversation_text: 기존 호환용 대화 원문 문자열
+
+    둘 다 제공하면 messages를 원문 구간의 1차 출처로 보고, messages를 역할 정보와
+    함께 이어 붙인 재구성 텍스트와 conversation_text가 실질적으로 같은지 검사한다.
+    다르면 오류로 처리하고(messages 우선), 같으면 정상 저장한다.
+
+    messages가 있으면 각 메시지의 role과 content가 필수다. 하나라도 없거나 비어 있으면
+    도구 오류로 처리한다. record_id, timestamp는 알 수 있는 값만 넣는다.
 
     MVP에서는 사용자가 명시적으로 위키 저장 요청을 했을 때만 호출된다고 가정한다.
     자동 전송/주기 전송/대화 종료 자동 위키화는 MVP 범위 밖.
     """
-    logger.info("submit_conversation session=%s len=%d", session_id, len(conversation_text))
-    return _fmt_result(tools.tool_submit_conversation(session_id, conversation_text, context))
+    logger.info(
+        "submit_conversation session=%s messages=%s conversation_text=%s source=%s",
+        session_id,
+        (len(messages) if messages is not None else 0),
+        (len(conversation_text) if conversation_text is not None else 0),
+        source,
+    )
+    return _fmt_result(
+        tools.tool_submit_conversation(
+            session_id=session_id,
+            conversation_text=conversation_text,
+            context=context,
+            messages=messages,
+            source=source,
+        )
+    )
 
 
 @server.tool()
@@ -134,6 +161,53 @@ async def search_wiki(query: str, limit: int = 20) -> dict:
     실제 서비스에서는 임베딩/벡터 검색을 붙여야 한다(MVP 이후).
     """
     return _fmt_result(tools.tool_search_wiki(query, limit))
+
+
+# ------------------------------------------------------------------ 세션 그래프 분석 요청
+
+
+@server.tool()
+async def submit_session_for_analysis(
+    session_id: str,
+    original_text: str,
+    source: str,
+    context: dict | None = None,
+) -> dict:
+    """대화 원문을 세션 그래프 분석 큐에 등록한다.
+
+    원문 저장과 분석 요청이 함께 처리된다. 실제 추출/개념화/GraphML/연결 판단은
+    별도 워커가 처리하며, MCP 도구는 요청 등록까지만 담당한다.
+    Solar 미호출 모드에서는 analysis_store를 통해 임시 분석 응답을 나중에 채울 수 있다.
+    """
+    return _fmt_result(
+        tools.tool_submit_session_for_analysis(session_id, original_text, source, context)
+    )
+
+
+@server.tool()
+async def sync_session_graph_analysis(
+    request_id: str,
+    analysis_result: dict,
+) -> dict:
+    """Solar 없이 임시 분석 응답을 기록한다.
+
+    워커가 실제 분석을 수행했거나, 테스트 목적으로 합성 결과를 넣을 때 사용한다.
+    """
+    return _fmt_result(
+        tools.tool_sync_session_graph_analysis(request_id, analysis_result)
+    )
+
+
+@server.tool()
+async def get_session_graph_request(request_id: str) -> dict:
+    """분석 요청 상태를 조회한다."""
+    return _fmt_result(tools.tool_get_session_graph_request(request_id))
+
+
+@server.tool()
+async def list_session_graph_requests(limit: int = 50) -> dict:
+    """분석 요청 목록을 조회한다."""
+    return _fmt_result(tools.tool_list_session_graph_requests(limit))
 
 
 # ------------------------------------------------------------------ 서버 실행

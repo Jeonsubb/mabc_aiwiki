@@ -50,7 +50,7 @@ export default function ChatsListPage() {
   return (
     <div className="container" style={{ paddingTop: 'var(--sp-xl)' }}>
       <header className="chat-list-header">
-        <h2>내 대화방</h2>
+        <h2>내 대화</h2>
         <button type="button" className="btn btn-ghost" onClick={load} disabled={loading}>
           {loading ? '새로고침 중…' : '새로고침'}
         </button>
@@ -75,7 +75,7 @@ export default function ChatsListPage() {
 
         {!loading && chats.length === 0 && (
           <div className="chat-empty">
-            <p>내 대화방이 없습니다.</p>
+            <p>아직 대화가 없어요. 새 대화를 시작해 보세요.</p>
           </div>
         )}
 
@@ -84,7 +84,7 @@ export default function ChatsListPage() {
             <div className="chat-list-item-main">
               <div className="chat-list-item-title">
                 <strong>{c.title || '새 대화'}</strong>
-                <span className="chat-list-item-date">{formatDate(c.createdAt)}</span>
+                <span className="chat-list-item-date">{formatDate(c.updatedAt)}</span>
               </div>
               {c.lastMessage && (
                 <div className="chat-list-item-preview">

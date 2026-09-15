@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Search, ChevronRight, ChevronDown, User } from "lucide-react";
 
 const pathSteps = [{ label: "나의 공간", to: "/" }] as const;
@@ -11,6 +12,8 @@ interface TopbarProps {
 }
 
 export default function Topbar({ currentPage, user, onLogout }: TopbarProps) {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
   return (
     <header className="topbar" aria-label="Nodus 상단 탐색 및 검색">
       <nav className="topbar-path" aria-label="현재 위치">
@@ -55,39 +58,14 @@ export default function Topbar({ currentPage, user, onLogout }: TopbarProps) {
             placeholder="생각, 연결, 원문 검색…"
             aria-label="생각 검색 입력"
             onFocus={(e) => e.target.select()}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && query.trim()) navigate(`/search?q=${encodeURIComponent(query.trim())}`); }}
           />
         </div>
 
         {user ? (
-          <button
-            type="button"
-            className="topbar-user-btn"
-            aria-label="사용자 메뉴 — 계정, 설정, 로그아웃"
-            aria-haspopup="menu"
-            onClick={undefined}
-          >
-            <button type="button" className="btn btn-ghost" onClick={onLogout}>
-              로그아웃
-            </button>
-            <User aria-hidden="true" />
-            <span
-              style={{
-                fontSize: "var(--text-sm)",
-                color: "var(--text-secondary)",
-                maxWidth: "140px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {user.email.split("@")[0]}
-            </span>
-            <ChevronDown
-              size={13}
-              aria-hidden="true"
-              style={{ color: "var(--text-muted)", flexShrink: 0 }}
-            />
-          </button>
+          <span className="topbar-user-name">{user.name || user.email}</span>
         ) : (
           <Link to="/login" className="topbar-login-btn">
             로그인

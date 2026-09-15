@@ -7,6 +7,7 @@ export interface Thought {
   summary: string;
   source: string;
   type: "node";
+  content: string;
 }
 
 interface ThoughtMapGraphProps {

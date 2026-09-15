@@ -3,26 +3,30 @@ import OrbitOnly from "./OrbitOnly";
 import DetailPanel from "../components/DetailPanel";
 import { api } from "../services/api";
 import type { WikiNode } from "@shared/api";
+import type { Thought } from "../components/ThoughtMapGraph";
 
 export default function MindMapPage() {
-  const [selectedThought, setSelectedThought] = useState<{ id: string; title: string; summary: string; source: string; type: "node" } | null>(null);
-  const [thoughts, setThoughts] = useState<{ id: string; title: string; summary: string; source: string; type: "node" }[]>([]);
-  useEffect(() => {
-    api
-      .getNodes()
-      .then((res) =>
-        setThoughts(
-          res.nodes.map((n: WikiNode) => ({
-            id: n.id,
-            title: n.title,
-            summary: n.summary,
-            source: n.topics.join(" · ") || "위키",
-            type: "node" as const,
-          })),
-        ),
-      )
-      .catch(() => setThoughts([]));
-  }, []);
+const [selectedThought, setSelectedThought] = useState<Thought | null>(null);
+const [thoughts, setThoughts] = useState<Thought[]>([]);
+useEffect(() => {
+  api
+    .getNodes()
+    .then((res) =>
+      setThoughts(
+        res.nodes.map((n: WikiNode) => ({
+          id: n.id,
+          title: n.title,
+          summary: n.summary,
+          source: n.topics.join(" · ") || "위키",
+          type: "node" as const,
+          content: n.content,
+        })),
+      ),
+    )
+    .catch(() => setThoughts([]));
+}, []);
+
+
 
   const [detailView, setDetailView] = useState<{ kind: "thought"; thought: { id: string; title: string; summary: string; source: string; type: "node" } | null }>({
     kind: "thought",
