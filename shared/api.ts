@@ -13,6 +13,14 @@ export interface ProposalSnapshot {
   [key: string]: unknown;
 }
 
+export interface ProposalEvidence {
+  id: string;
+  segmentId: string;
+  quote: string;
+  originalStart: number;
+  originalEnd: number;
+}
+
 export interface Proposal {
   id: string;
   type: '추가' | '갱신' | '분리' | '병합' | '연결' | '보강' | '수정';
@@ -20,7 +28,7 @@ export interface Proposal {
   sourceNodeId?: string;
   action: string;
   reason: string;
-  evidence: string;
+  evidence?: ProposalEvidence[] | null;
   draftPayload?: ProposalSnapshot | null;
   changePayload?: ProposalSnapshot | null;
   before?: ProposalSnapshot | null;
