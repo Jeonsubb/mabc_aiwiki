@@ -10,22 +10,121 @@ import { hashMcpToken } from './util/mcp-token';
 import { Prisma } from '@prisma/client';
 import { generateCandidatesForRecord, type CandidateGenerationResult } from './services/candidateGenerator';
 
+function normalizeWhitespace(t: string): string {
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+function reconstructedText(messages: Array<Record<string, unknown>>): string {
+  return messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+}
+
+function validateMessages(messages: Array<Record<string, unknown>>): string | null {
+  if (!messages || messages.length === 0) {
+    return 'messages는 비어 있지 않은 배열이어야 합니다';
+  }
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (!m || typeof m !== 'object') {
+      return `messages[${i}]는 객체여야 합니다`;
+    }
+    const roleRaw = (m as Record<string, unknown>)['role'];
+    const contentRaw = (m as Record<string, unknown>)['content'];
+    const role = typeof roleRaw === 'string' ? roleRaw : undefined;
+    const content = typeof contentRaw === 'string' ? contentRaw : undefined;
+    if (role === undefined || content === undefined) {
+      return `messages[${i}]는 role과 content가 필수이며 문자열이어야 합니다`;
+    }
+    if (!role.trim()) {
+      return `messages[${i}].role은 비어 있을 수 없습니다`;
+    }
+    if (!content.trim()) {
+      return `messages[${i}].content는 비어 있을 수 없습니다`;
+    }
+  }
+  return null;
+}
+
+function normalizeContext(context: unknown): Record<string, unknown> {
+  return (context && typeof context === 'object' && !Array.isArray(context))
+    ? (context as Record<string, unknown>)
+    : {};
+}
+
 async function submitConversationTool(userId: string, args: Record<string, unknown>) {
   const session_id = args['session_id'] as string | undefined;
   const conversation_text = args['conversation_text'] as string | undefined;
-  const context = (args['context'] as Record<string, unknown>) ?? {};
+  const context = normalizeContext(args['context']);
+  const messagesRaw = args['messages'];
+  const messages = Array.isArray(messagesRaw) ? messagesRaw : undefined;
+  const source = (args['source'] as string) ?? undefined;
 
-  if (!session_id || !conversation_text) {
+  if (!session_id) {
     return {
-      content: [
-        { type: 'text', text: JSON.stringify({ error: 'session_id와 conversation_text가 필요' }) },
-      ],
+      content: [{ type: 'text', text: JSON.stringify({ error: 'session_id가 필요' }) }],
     };
   }
 
-  const contentHash = await hashContent(conversation_text);
+  if (messagesRaw !== undefined && messagesRaw !== null) {
+    if (!Array.isArray(messagesRaw)) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'messages는 배열이어야 합니다' }) }],
+      };
+    }
+    const validated = Array.isArray(messagesRaw) ? (messagesRaw as Array<Record<string, unknown>>) : undefined;
+    if (!validated) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'messages는 배열이어야 합니다' }) }],
+      };
+    }
+    const validationError = validateMessages(validated);
+    if (validationError) {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ error: validationError }) }],
+      };
+    }
 
-  // 중복 입력 감지: 기존 record 확인
+    const reconstructed = reconstructedText(validated);
+
+    if (conversation_text !== undefined && typeof conversation_text === 'string') {
+      if (normalizeWhitespace(reconstructed) !== normalizeWhitespace(conversation_text)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                error:
+                  "messages와 conversation_text의 내용이 일치하지 않습니다. messages를 우선하며, 차이를 확인 후 다시 요청하세요.",
+              }),
+            },
+          ],
+        };
+      }
+    }
+
+    const storedText = reconstructed;
+
+    return await handleStoreAndGenerate(userId, session_id, source, validated, storedText, context);
+  }
+
+  if (!conversation_text || typeof conversation_text !== 'string') {
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ error: 'conversation_text가 필요' }) }],
+    };
+  }
+
+  return await handleStoreAndGenerate(userId, session_id, source, undefined, conversation_text, context);
+}
+
+async function handleStoreAndGenerate(
+  userId: string,
+  session_id: string,
+  source: string | undefined,
+  messages: Array<Record<string, unknown>> | undefined,
+  rawText: string,
+  context: Record<string, unknown>,
+) {
+  const contentHash = await hashContent(rawText);
+
   const existingRecord = await db.record.findUnique({
     where: { user_content_hash_unique: { userId, contentHash } },
   });
@@ -37,7 +136,6 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
     });
 
     if (proposals.length > 0) {
-      // 이미 보관 + 후보 생성까지 완료된 레코드 → 기존 상태로 응답
       return {
         content: [
           {
@@ -57,7 +155,6 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
       };
     }
 
-    // 보관은 됐지만 후보 생성이 아직 안 된 레코드 → 재시도 경로 제공
     return {
       content: [
         {
@@ -82,30 +179,62 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
         data: {
           userId,
           conversationId: session_id,
-          source: 'mcp',
-          rawText: conversation_text,
+          source: source ?? 'mcp',
+          rawText,
           contentHash,
           context: context as unknown as import('@prisma/client/runtime/library').InputJsonValue,
-          status: '보관됨',
+          status: '처리중',
         },
       });
-      await tx.conversationSegment.create({
-        data: {
-          recordId: created.id,
-          segmentIndex: 0,
-          rawStart: 0,
-          rawEnd: conversation_text.length,
-          rawText: conversation_text,
-        },
-      });
+
+      if (messages) {
+        let cursor = 0;
+        for (let i = 0; i < messages.length; i++) {
+          const m = messages[i];
+          const role = (m.role as string);
+          const content = (m.content as string);
+          const segmentRawText = `${role}: ${content}`;
+          await tx.conversationSegment.create({
+            data: {
+              recordId: created.id,
+              segmentIndex: i,
+              rawStart: cursor,
+              rawEnd: cursor + segmentRawText.length,
+              rawText: segmentRawText,
+            },
+          });
+          cursor += segmentRawText.length;
+          if (i < messages.length - 1) {
+            cursor += 1;
+          }
+        }
+      } else {
+        await tx.conversationSegment.create({
+          data: {
+            recordId: created.id,
+            segmentIndex: 0,
+            rawStart: 0,
+            rawEnd: rawText.length,
+            rawText,
+          },
+        });
+      }
+
       return created;
     });
 
-    // 원본 보관 트랜잭션 완료 후 공통 후보 생성 서비스 호출 (별도 트랜잭션)
     const candidateResult = await generateCandidatesForRecord(userId, record.id);
 
     const proposals = candidateResult.proposals;
     const generated = candidateResult.status === 'success' && proposals.length > 0;
+    const finalStatus = candidateResult.status === 'success' ? '처리됨' : '실패';
+    const errorMessage =
+      candidateResult.status === 'success' ? undefined : candidateResult.error;
+
+    await db.record.update({
+      where: { id: record.id },
+      data: { status: finalStatus, errorMessage },
+    });
 
     return {
       content: [
@@ -115,7 +244,7 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
             conversation_id: record.id,
             stored_at: record.createdAt.toISOString(),
             duplicated: false,
-            status: candidateResult.status === 'success' ? '보관됨' : '보관됨_생성실패',
+            status: finalStatus,
             generated,
             retryable: !generated && candidateResult.status !== 'success',
             candidate: {
@@ -181,12 +310,7 @@ async function submitConversationTool(userId: string, args: Record<string, unkno
       }
     }
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ error: '보관 중 오류가 발생했습니다.' }),
-        },
-      ],
+      content: [{ type: 'text', text: JSON.stringify({ error: '보관 중 오류가 발생했습니다.' }) }],
     };
   }
 }
@@ -216,15 +340,29 @@ async function listConversationsTool(userId: string, args: Record<string, unknow
 const tools = [
   {
     name: 'submit_conversation',
-    description: '대화 원본을 보관 영역에 저장한다.',
+    description: '대화 원본을 보관 영역에 저장한다. messages(역할 구분 메시지 목록, role/content 필수) 또는 기존 conversation_text로 원문 구간을 전달한다. 둘 다 제공하면 messages를 원문 구간의 1차 출처로 보고, messages를 role과 함께 이어 붙인 재구성 텍스트와 conversation_text가 실질적으로 같은지 검사한다. 다르면 오류로 처리한다(messages 우선). messages가 있으면 각 메시지의 role과 content가 필수이며, 비어 있을 수 없다. record_id와 timestamp는 선택이며, 알 수 없는 값을 만들어 넣지 않는다. source는 전송 출처 구분용 선택 필드다. MVP에서는 사용자가 명시적으로 위키 저장 요청을 했을 때만 호출된다고 가정하며, 자동 전송/주기 전송/대화 종료 자동 위키화는 범위 밖이다.',
     inputSchema: {
       type: 'object',
       properties: {
         session_id: { type: 'string' },
         conversation_text: { type: 'string' },
         context: { type: 'object' },
+        messages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              role: { type: 'string' },
+              content: { type: 'string' },
+              record_id: { type: 'string' },
+              timestamp: { type: 'string' },
+            },
+            required: ['role', 'content'],
+          },
+        },
+        source: { type: 'string' },
       },
-      required: ['session_id', 'conversation_text'],
+      required: ['session_id'],
     },
   },
   {

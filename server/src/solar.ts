@@ -63,8 +63,10 @@ function loadSkillPrompt(): string {
   try {
     const fs = require('fs');
     const path = require('path');
-    // solar.ts는 server/src/에 있으므로 프로젝트 루트의 docs/ai-wiki-SKILL.md를 가리킨다.
-    const skillPath = path.resolve(__dirname, '../docs/ai-wiki-SKILL.md');
+    // solar.ts는 server/src/ 또는 빌드 후 server/dist/에 있을 수 있다.
+    // 둘 다 __dirname 기준으로 ../../docs/가 저장소 루트의 docs/가 되므로
+    // 실행 위치와 무관하게 docs/ai-wiki-SKILL.md를 찾는다.
+    const skillPath = path.resolve(__dirname, '../../docs/ai-wiki-SKILL.md');
     if (fs.existsSync(skillPath)) return fs.readFileSync(skillPath, 'utf-8');
     console.warn(
       `[solar] ai-wiki-SKILL.md를 찾지 못함: ${skillPath} — 개발/실행 시 규칙 파일이 로드되지 않습니다.`
