@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { db } from '../db';
 import { generateFromRecord, type SolarResult } from '../solar';
 
@@ -71,6 +72,19 @@ function validateProposalDraft(
     }
     targetNode = targetNodeCandidate;
   }
+  if (type === '연결') {
+  const sourceNodeId = propDraft.sourceNodeId;
+  const targetNodeId = propDraft.targetNodeId;
+
+  if (!sourceNodeId || !targetNodeId || sourceNodeId === targetNodeId) {
+    return { ok: false, reason: '연결할 두 노드가 유효하지 않음', targetNode };
+  }
+
+  const sourceNode = existingNodesById.get(sourceNodeId);
+  if (!sourceNode || sourceNode.userId !== userId) {
+    return { ok: false, reason: '연결 출발 노드가 사용자 노드가 아님', targetNode };
+  }
+}
   const evidenceSegments = propDraft.evidenceSegments ?? [];
   if (evidenceSegments.length === 0) {
     return { ok: false, reason: 'evidenceSegments가 비어 있어 근거를 특정할 수 없음', targetNode };
@@ -260,25 +274,54 @@ export async function generateCandidatesForRecord(
       const targetNodeId = propDraft.targetNodeId || validation.targetNode?.id || undefined;
       const relatedRecordId = record.id;
 
-      const beforePayload = propDraft.before
-        ? {
-            summary: propDraft.before.summary,
-            content: propDraft.before.content,
-            topics: propDraft.before.topics,
-            tags: propDraft.before.tags,
-            categories: propDraft.before.categories,
-          }
-        : undefined;
+      // 변경 전 스냅샷은 Solar 답변이 아니라 실제 DB 노드의 현재 내용으로 저장한다.
+      let baseNodeVersion: number | null = null;
+      let beforePayload: Record<string, unknown> | undefined;
 
-      const afterPayload = propDraft.after
-        ? {
-            summary: propDraft.after.summary,
-            content: propDraft.after.content,
-            topics: propDraft.after.topics,
-            tags: propDraft.after.tags,
-            categories: propDraft.after.categories,
-          }
-        : undefined;
+      if (targetNodeId) {
+        const targetNode = await db.wikiNode.findUnique({
+          where: { id: targetNodeId },
+          select: {
+            summary: true,
+            content: true,
+            topics: true,
+            tags: true,
+            categories: true,
+            latestVersion: true,
+          },
+        });
+        if (targetNode) {
+          baseNodeVersion = targetNode.latestVersion;
+          beforePayload = {
+            summary: targetNode.summary,
+            content: targetNode.content,
+            topics: targetNode.topics,
+            tags: targetNode.tags,
+            categories: targetNode.categories,
+          };
+        }
+      }
+
+      // Prisma JSON 필드 입력 형태에 맞춰 직렬화 가능한 객체로만 전달한다.
+     if (propDraft.type === '갱신' && (!targetNodeId || !beforePayload || !propDraft.after)) {
+  excluded.push({ source: 'proposal', reason: '갱신에 대상 노드 또는 변경 후 내용이 없음' });
+  continue;
+}
+
+const afterPayload = propDraft.after;
+
+const changePayload = JSON.parse(JSON.stringify({
+  type: propDraft.type,
+  targetNodeId,
+  sourceNodeId: propDraft.sourceNodeId,
+  action: propDraft.action,
+  reason: propDraft.reason,
+  evidence: propDraft.evidence,
+  relatedSegmentIds: propDraft.relatedSegmentIds,
+  relatedRecordId: propDraft.relatedRecordId,
+  before: beforePayload,
+  after: afterPayload,
+})) as Prisma.InputJsonValue;
 
       const proposal = await db.proposal.create({
         data: {
@@ -290,7 +333,7 @@ export async function generateCandidatesForRecord(
           evidenceSegmentIds: propDraft.evidenceSegments,
           relatedSegmentIds: propDraft.relatedSegmentIds,
           relatedRecordId: relatedRecordId,
-          baseNodeVersion: null,
+          baseNodeVersion: baseNodeVersion,
           skillHash,
           hasSensitiveInfo: solarResult.sensitiveInfo.hasSensitiveInfo,
           sensitiveInfoWarning: solarResult.sensitiveInfo.warning || undefined,
@@ -299,20 +342,13 @@ export async function generateCandidatesForRecord(
           targetNodeId: targetNodeId,
           sourceNodeId: propDraft.sourceNodeId || undefined,
           // 변경안 payload / before / after (스키마 반영 필드)
-          changePayload: {
-            type: propDraft.type,
-            targetNodeId: propDraft.targetNodeId,
-            sourceNodeId: propDraft.sourceNodeId,
-            action: propDraft.action,
-            reason: propDraft.reason,
-            evidence: propDraft.evidence,
-            relatedSegmentIds: propDraft.relatedSegmentIds,
-            relatedRecordId: propDraft.relatedRecordId,
-            before: beforePayload,
-            after: afterPayload,
-          },
-          before: beforePayload,
-          after: afterPayload,
+          changePayload,
+...(beforePayload
+  ? { before: beforePayload as Prisma.InputJsonValue }
+  : {}),
+...(afterPayload
+  ? { after: afterPayload as Prisma.InputJsonValue }
+  : {}),
         },
       });
 

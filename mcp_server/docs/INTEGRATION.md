@@ -41,19 +41,44 @@ MCP 도구는 stdio 서버로 노출되며, Hermes의 native-mcp 클라이언트
 
 #### `submit_conversation`
 - **입력**
-  - `session_id: str`
-  - `conversation_text: str`
-  - `context: dict`
+  - `session_id: str` (필수)
+  - `conversation_text: str` (선택, messages가 없을 때 사용)
+  - `context: dict` (선택, 보충 맥락)
+  - `messages: list[dict]` (선택, role/content 필수, record_id/timestamp 선택)
+  - `source: str` (선택, 전송 출처 구분)
+- **입력 방식**
+  - messages 방식: 역할이 구분된 메시지 목록으로 원문 구간을 전달한다.
+    - 각 메시지 필수: `role`, `content`
+    - 각 메시지 선택: `record_id`, `timestamp`
+    - role, content가 없거나 비어 있으면 도구 오류.
+  - conversation_text 방식(기존 호환): 대화 원문 문자열로 전달한다.
+  - 둘 다 제공하면 messages를 원문 구간의 1차 출처로 보고, messages를 역할 정보와 함께 이어 붙인 재구성 텍스트와 conversation_text가 실질적으로 같은지 비교한다. 다르면 오류로 처리하고(messages 우선), 같으면 정상 저장한다.
+- **주의**
+  - record_id, timestamp는 알 수 있는 값만 넣는다. 모르는 원본 id나 시각을 추측해서 만들어 넣지 않는다.
+  - source는 전송 출처 구분용 선택 필드다.
 - **출력**
   - `{"conversation_id": "...", "stored_at": "..."}`
 - **오류**
   - `ValueError` 계열 → MCP 도구 오류로 변환 (`ToolError`)
-- **예시**
+- **예시 (messages 방식)**
+  ```json
+  {
+    "session_id": "sess-12345",
+    "source": "agent",
+    "messages": [
+      { "role": "user", "content": "동네 산책 사진으로 사진집을 만들까 고민 중이야.", "record_id": "msg-001", "timestamp": "2026-09-15T10:00:00+09:00" },
+      { "role": "assistant", "content": "사진집은 인쇄와 전자책 두 가지 형식이 있어요. 어떤 쪽으로 생각하세요?", "record_id": "msg-002", "timestamp": "2026-09-15T10:00:15+09:00" },
+      { "role": "user", "content": "아직 정리는 안 됐고, 일단 아이디어만 보관해두고 싶어.", "record_id": "msg-003", "timestamp": "2026-09-15T10:00:30+09:00" }
+    ],
+    "context": { "topic": "사진집 기획", "skill": "ai-wiki" }
+  }
+  ```
+- **예시 (conversation_text 방식, 기존 호환)**
   ```json
   {
     "session_id": "abc-123",
     "conversation_text": "사용자: ... \nAI: ...",
-    "context": {"topic": "사진집 기획", "skill": "ai-wiki"}
+    "context": { "topic": "사진집 기획", "skill": "ai-wiki" }
   }
   ```
 

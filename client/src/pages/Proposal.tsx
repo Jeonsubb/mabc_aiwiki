@@ -96,6 +96,7 @@ export default function ProposalPage() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -125,8 +126,8 @@ export default function ProposalPage() {
       saveDecision({ proposalId: id, action, at: new Date().toISOString() });
       setSaved(true);
       setProposal(res.proposal);
-    } catch {
-      alert('결정 반영에 실패했어요.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '결정 반영에 실패했어요.');
     }
   }
 
@@ -179,6 +180,10 @@ export default function ProposalPage() {
         <p className="decided-msg">
           이미 {decided.action}하셨습니다. (결정 시각: {new Date(decided.at).toLocaleString()})
         </p>
+      )}
+
+      {error && (
+        <p className="error-msg">{error}</p>
       )}
 
       <div className="decide-actions">

@@ -42,6 +42,30 @@ def _write(path: Path, data: list[dict[str, Any]]) -> None:
 
 # ------------------------------------------------------------------ 대화 원본 보관
 
+def create_conversation_record(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """submit_conversation(payload)로부터 원본 보관 레코드 하나를 저장한다.
+
+    payload는 세션/출처/메시지/보충맥락/원문 텍스트 등을 담는다.
+    messages 또는 conversation_text 중 하나 이상이 원문을 구성한다.
+    """
+    _ensure()
+    record = {
+        "id": str(uuid.uuid4()),
+        "session_id": payload.get("session_id"),
+        "source": payload.get("source"),
+        "messages": payload.get("messages"),
+        "context": payload.get("context"),
+        "conversation_text": payload.get("conversation_text"),
+        "stored_at": datetime.now(timezone.utc).isoformat(),
+    }
+    data = _read(CONVERSATIONS_FILE)
+    data.append(record)
+    _write(CONVERSATIONS_FILE, data)
+    return record
+
+
 def add_conversation(
     session_id: str,
     conversation_text: str,

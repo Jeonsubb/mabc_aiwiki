@@ -155,7 +155,7 @@ async function handleStoreAndGenerate(
       select: { id: true, type: true },
     });
 
-    if (proposals.length > 0) {
+  if (proposals.length > 0 && existingRecord.status === '처리됨') {
       return {
         content: [
           {
@@ -175,23 +175,100 @@ async function handleStoreAndGenerate(
       };
     }
 
+    if (existingRecord.status === '실패' && proposals.length === 0) {
+  const claimed = await db.record.updateMany({
+    where: { id: existingRecord.id, status: '실패' },
+    data: {
+      status: '처리중',
+      retryCount: { increment: 1 },
+      errorMessage: null,
+    },
+  });
+
+  if (claimed.count !== 1) {
     return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            conversation_id: existingRecord.id,
-            stored_at: existingRecord.createdAt.toISOString(),
-            duplicated: true,
-            status: existingRecord.status,
-            generated: false,
-            retryable: true,
-            note: '보관된 대화지만 후보 생성이 완료되지 않았습니다. 동일 내용으로 재호출하면 후보 생성을 다시 시도합니다.',
-          }),
-        },
-      ],
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        duplicated: true,
+        status: '처리중',
+        generated: false,
+        retryable: false,
+        note: '이미 재처리 중입니다.',
+      }) }],
     };
   }
+
+  try {
+    const result = await generateCandidatesForRecord(userId, existingRecord.id);
+    const generated = result.status === 'success' && result.proposals.length > 0;
+    const status = result.status === 'success'
+      ? (generated ? '처리됨' : '제안 없음')
+      : '실패';
+
+    await db.record.update({
+      where: { id: existingRecord.id },
+      data: {
+        status,
+        errorMessage: result.status === 'success' ? null : result.error ?? '후보 생성 실패',
+      },
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        stored_at: existingRecord.createdAt.toISOString(),
+        duplicated: true,
+        status,
+        generated,
+        proposals: result.proposals,
+        retryable: status === '실패',
+        candidate: {
+          status: result.status,
+          proposals: result.proposals,
+          excluded: result.excluded,
+          error: result.error,
+        },
+      }) }],
+    };
+  } catch (err) {
+    await db.record.update({
+      where: { id: existingRecord.id },
+      data: {
+        status: '실패',
+        errorMessage: err instanceof Error ? err.message : '재처리 오류',
+      },
+    });
+
+    return {
+      content: [{ type: 'text', text: JSON.stringify({
+        conversation_id: existingRecord.id,
+        duplicated: true,
+        status: '실패',
+        generated: false,
+        retryable: true,
+        error: '후보 재처리 중 오류가 발생했습니다.',
+      }) }],
+    };
+  }
+}
+
+return {
+  content: [{ type: 'text', text: JSON.stringify({
+    conversation_id: existingRecord.id,
+    stored_at: existingRecord.createdAt.toISOString(),
+    duplicated: true,
+    status: existingRecord.status,
+    generated: existingRecord.status === '처리됨' && proposals.length > 0,
+    proposals,
+    retryable: false,
+    note: existingRecord.status === '처리중'
+      ? '이미 처리 중입니다.'
+      : '현재 기록은 자동 재처리 대상이 아닙니다.',
+  }) }],
+};
+  }
+
+let createdRecordId: string | null = null;
 
   try {
     const record = await db.$transaction(async (tx) => {
@@ -242,12 +319,14 @@ async function handleStoreAndGenerate(
 
       return created;
     });
-
+    createdRecordId = record.id;
     const candidateResult = await generateCandidatesForRecord(userId, record.id);
 
     const proposals = candidateResult.proposals;
     const generated = candidateResult.status === 'success' && proposals.length > 0;
-    const finalStatus = candidateResult.status === 'success' ? '처리됨' : '실패';
+    const finalStatus = candidateResult.status === 'success'
+      ? (generated ? '처리됨' : '제안 없음')
+      : '실패';
     const errorMessage =
       candidateResult.status === 'success' ? undefined : candidateResult.error;
 
@@ -280,6 +359,29 @@ async function handleStoreAndGenerate(
       ],
     };
   } catch (err) {
+     if (createdRecordId) {
+      const proposalCount = await db.proposal.count({
+        where: { relatedRecordId: createdRecordId },
+      });
+
+      await db.record.update({
+        where: { id: createdRecordId },
+        data: {
+          status: '실패',
+          errorMessage: err instanceof Error ? err.message : '후보 생성 오류',
+        },
+      });
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          conversation_id: createdRecordId,
+          status: '실패',
+          generated: false,
+          retryable: proposalCount === 0,
+          error: '후보 생성 중 오류가 발생했습니다.',
+        }) }],
+      };
+    }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existingRecord = await db.record.findUnique({
         where: { user_content_hash_unique: { userId, contentHash } },
