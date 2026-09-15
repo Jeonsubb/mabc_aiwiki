@@ -75,7 +75,7 @@ export default function ChatsListPage() {
 
         {!loading && chats.length === 0 && (
           <div className="chat-empty">
-            <p>내 대화방이 없습니다.</p>
+            <p>아직 대화방이 없어요. 새 대화를 시작해 보세요.</p>
           </div>
         )}
 

@@ -42,14 +42,14 @@ export default function ProposalsList() {
     <div>
       <h2>제안 목록</h2>
       <p className="hint">
-        조회 경로: /proposals · 스킬 파이프라인이 만든 제안 목록입니다.
+        대화에서 발견한 위키 초안과 갱신 제안입니다. 수락한 것만 위키에 반영됩니다.
       </p>
 
       {proposals.length === 0 ? (
         <div className="card">
-          <p>아직 스킬 파이프라인이 만든 제안이 없어요.</p>
+          <p>아직 제안이 없어요.</p>
           <p className="hint">
-            MCP로 들어온 대화가 있으면 여기서 제안이 생깁니다.
+            대화를 정리하면 여기에 제안이 쌓입니다.
           </p>
         </div>
       ) : (
