@@ -40,7 +40,7 @@ chatsRouter.get('/', requireAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const chats = await db.chat.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
       include: {
         _count: { select: { messages: true } },
         messages: {

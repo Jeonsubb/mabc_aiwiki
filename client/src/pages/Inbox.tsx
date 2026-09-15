@@ -34,7 +34,7 @@ export default function Inbox() {
       
       <h2>보관된 대화 유입 기록</h2>
       <p className="hint">
-        저장 경로: /records · MCP로 들어온 대화 구간이 쌓입니다.
+        AI 에이전트가 보낸 대화 원문이 여기에 보관됩니다.
       </p>
 
       {error ? (
@@ -43,9 +43,9 @@ export default function Inbox() {
         </div>
       ) : records.length === 0 ? (
         <div className="card">
-          <p>아직 MCP로 들어온 대화 기록이 없어요.</p>
+          <p>아직 보관된 대화가 없어요.</p>
           <p className="hint">
-            AI 에이전트에서 위키 저장 요청하면 여기 쌓입니다.
+            AI 에이전트에서 위키 저장을 요청하면 여기에 쌓입니다.
           </p>
         </div>
       ) : (

@@ -1,4 +1,6 @@
-import { Bookmark, Link, MessageSquare, ArrowRight } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { api } from "../services/api";
+import { Bookmark, MessageSquare, ArrowRight } from "lucide-react";
 import type { Thought } from "./ThoughtMapGraph";
 
 interface DetailPanelProps {
@@ -6,6 +8,7 @@ interface DetailPanelProps {
 }
 
 export default function DetailPanel({ thought }: DetailPanelProps) {
+  const navigate = useNavigate();
   if (!thought) {
     return (
       <div className="detail-panel-scroll">
@@ -30,41 +33,33 @@ export default function DetailPanel({ thought }: DetailPanelProps) {
       <div className="detail-panel-body">
         <p className="node-summary">{thought.summary}</p>
 
-        <div className="detail-section">
-          {/* 개발 미리보기 — 실제 연결 데이터는 API 연동 후 채움 */}
-          <div className="detail-section-head">
-            <Link size={14} aria-hidden="true" />
-            <span>연결</span>
-            <span className="detail-section-dev">개발 미리보기</span>
-          </div>
-          <div className="detail-section-list">
-            {[
-              { text: "t1 ↔ t2", meta: "제안된 연결" },
-              { text: "t2 → t3", meta: "연결됨" },
-            ].map((item, i) => (
-              <div key={i} className="detail-section-row">
-                <span>{item.text}</span>
-                <span className="detail-section-meta">{item.meta}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+
 
         <div className="detail-section">
-          {/* 개발 미리보기 — 실제 원문 근거는 API 연동 후 채움 */}
           <div className="detail-section-head">
             <MessageSquare size={14} aria-hidden="true" />
-            <span>원문 근거</span>
-            <span className="detail-section-dev">개발 미리보기</span>
+            <span>정리된 내용</span>
           </div>
           <div className="detail-section-quote">
-            이 생각은 다음과 같은 대화 조각에서 나왔습니다: 여러 AI 대화 세션에서 나온
-            아이디어를 모아 검토한 기록.
+            {thought.content
+              ? thought.content.length > 300
+                ? thought.content.slice(0, 300) + "..."
+                : thought.content
+              : "아직 정리된 본문이 없습니다."}
           </div>
+          <Link to={`/node/${thought.id}`} className="btn-ghost-sm">
+            전체 보기
+          </Link>
         </div>
 
         <div className="detail-section-actions">
-          <button type="button" className="btn-ghost-sm">
+          <button type="button" className="btn-ghost-sm" onClick={() => {
+            api.createChat({ title: thought.title })
+              .then((res) => {
+                navigate(`/chats/${res.chat.id}`);
+              })
+              .catch(() => {});
+          }}>
             <ArrowRight
               size={14}
               style={{ marginRight: "6px" }}

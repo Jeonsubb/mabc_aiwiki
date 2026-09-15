@@ -258,6 +258,11 @@ export async function generateCandidatesForRecord(
     }
 
     for (const propDraft of solarResult.proposals) {
+      if (propDraft.type === '추가') {
+        excluded.push({ source: 'proposal', reason: '신규 노드는 newNodes 경로에서만 제안함' });
+        continue;
+      }
+
       if (!propDraft.action && !propDraft.reason) continue;
 
       const validation = validateProposalDraft(

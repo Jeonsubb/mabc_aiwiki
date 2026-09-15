@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type {
   McpCredentialsListResponse,
@@ -111,19 +110,13 @@ export default function McpCredentials() {
   };
 
   return (
-    <div>
-      <nav className="inbox-nav">
-        <Link to="/" className="btn btn-ghost">
-          ← 허브
-        </Link>
-      </nav>
-
+    <div className="container">
+      
       <div className="section-head">
         <span className="eyebrow">MCP</span>
-        <h2>연결 토큰</h2>
+        <h2>MCP 연결</h2>
         <p className="section-lead">
-          MCP 도구 연동에 쓸 Bearer 토큰을 발급하고 관리합니다. 토큰 원문은
-          발급 직후 이 페이지에만 표시하며 저장하지 않습니다.
+          AI 에이전트에 아래 서버 주소와 토큰을 등록하면, 에이전트가 정리한 대화를 이 서비스로 보낼 수 있습니다.
         </p>
       </div>
 

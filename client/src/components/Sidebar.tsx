@@ -3,8 +3,7 @@ import {
   Hexagon,
   Inbox,
   MessageSquare,
-  User,
-  PanelLeft,
+  
   Lightbulb,
   KeyRound
 } from "lucide-react";
@@ -12,7 +11,7 @@ import {
 /** 사이드바 아이콘 메뉴 항목 — 색상은 CSS에서 의미에 따라 고정 */
 const menuItems = [
   { to: "/", icon: Hexagon, label: "생각 지도" },
-  { to: "/chats", icon: MessageSquare, label: "대화방" },
+  { to: "/chats", icon: MessageSquare, label: "대화" },
   { to: "/records", icon: Inbox, label: "유입 기록" },
   { to: "/proposals", icon: Lightbulb, label: "제안 목록" },
   { to: "/credentials", icon: KeyRound, label: "MCP 연결" },
@@ -61,31 +60,6 @@ export default function Sidebar() {
         })}
       </div>
 
-      {/* 하단 영역 */}
-      <div className="sidebar-bottom">
-        <button
-          type="button"
-          className="sidebar-item"
-          aria-label="사이드바 접기 (준비중)"
-          data-tooltip="사이드바 접기 — 준비중"
-          disabled
-          aria-disabled="true"
-          style={{ opacity: 0.35, cursor: "not-allowed" }}
-        >
-          <PanelLeft aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="sidebar-user"
-          aria-label="사용자 메뉴 — 준비중"
-          data-tooltip="사용자 메뉴 — 준비중"
-          disabled
-          aria-disabled="true"
-          style={{ opacity: 0.4, cursor: "not-allowed" }}
-        >
-          <User aria-hidden="true" />
-        </button>
-      </div>
-    </nav>
+          </nav>
   );
 }

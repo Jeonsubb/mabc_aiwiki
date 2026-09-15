@@ -18,7 +18,7 @@ export default function LoginPage() {
       const res = await api.login({ email, password } as LoginRequest);
       localStorage.setItem('user', JSON.stringify(res.user));
       window.dispatchEvent(new CustomEvent('login-state-changed', { detail: res.user }));
-      navigate('/records');
+      navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인 실패');
     } finally {
@@ -30,7 +30,6 @@ export default function LoginPage() {
     <div className="container">
       <div className="card" style={{ maxWidth: '420px', margin: '0 auto', padding: 'var(--sp-xl)' }}>
         <h2 style={{ marginTop: 0 }}>로그인</h2>
-        <p className="hint">데모 계정: demo@mabc.local / demo1234</p>
         <form onSubmit={handleLogin} className="login-form">
           {error && <p className="login-error">{error}</p>}
           <input
