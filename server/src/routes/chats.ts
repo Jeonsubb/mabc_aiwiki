@@ -139,6 +139,7 @@ chatsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
 // ── 메시지 전송 (사용자 메시지 저장 → Solar 호출 → AI 메시지 저장) ──────────
 
 chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Response) => {
+  let savedUserMessageId: string | null = null;
   try {
     const userId = getUserId(req);
     const chatId = req.params.id;
@@ -173,6 +174,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
       },
       select: { id: true, role: true, content: true, createdAt: true },
     });
+      savedUserMessageId = userMessage.id;
 
     // 2. Solar용 채팅 맥락(검색 맥락 포함) 빌드: 사용자 전체 대화방 기준
     const { context } = await buildChatWithContext(trimmed, { userId });
@@ -196,6 +198,10 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
 
     if (reply.status !== 'success' || reply.content.length === 0) {
       // 사용자 메시지는 이미 저장되어 있으므로 보존, AI 답변 실패로 응답
+            await db.chatMessage.update({
+        where: { id: userMessage.id },
+        data: { retryStatus: 'failed' },
+      });
       return res.status(201).json({
         status: 'error',
         error: reply.error || 'AI 답변을 생성하지 못했음',
@@ -205,27 +211,44 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
     }
 
     // 4. AI 답변 저장
-    const assistantMessage = await db.chatMessage.create({
-      data: {
-        chatId,
-        role: 'assistant',
-        content: reply.content,
-      },
-      select: { id: true, role: true, content: true, createdAt: true },
-    });
+        const assistantMessage = await db.$transaction(async (tx) => {
+      const answer = await tx.chatMessage.create({
+        data: {
+          chatId,
+          role: 'assistant',
+          content: reply.content,
+          retryStatus: 'done',
+          referencedMessageId: userMessage.id,
+        },
+        select: { id: true, role: true, content: true, createdAt: true },
+      });
 
-    // 채팅방 updatedAt 갱신
-    await db.chat.update({
-      where: { id: chatId },
-      data: { updatedAt: new Date() },
-    });
+      await tx.chatMessage.update({
+        where: { id: userMessage.id },
+        data: { retryStatus: 'done' },
+      });
 
+      await tx.chat.update({
+        where: { id: chatId },
+        data: { updatedAt: new Date() },
+      });
+
+      return answer;
+    });
     return res.status(201).json({
       status: 'success',
       userMessage,
       assistantMessage,
     });
   } catch (err) {
+        if (savedUserMessageId) {
+      try {
+        await db.chatMessage.update({
+          where: { id: savedUserMessageId, retryStatus: 'processing' },
+          data: { retryStatus: 'failed' },
+        });
+      } catch {}
+    }
     console.error('chats POST /:id/messages error:', err);
     return res.status(500).json({ error: '서버 오류' });
   }
@@ -234,6 +257,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
 // ── 재시도 (지정된 사용자 메시지 또는 마지막 사용자 메시지로 다시 Solar 호출) ──
 
 chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) => {
+  let claimedRetryMessageId: string | null = null;
   try {
     const userId = getUserId(req);
     const chatId = req.params.id;
@@ -298,23 +322,32 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
       });
     }
 
-    // failed → processing CAS
-    const casResult = await db.chatMessage.update({
+        // failed → processing: 동시에 재시도해도 한 요청만 처리
+    const casResult = await db.chatMessage.updateMany({
       where: { id: target.id, retryStatus: 'failed' },
       data: { retryStatus: 'processing' },
     });
 
-    if (!casResult) {
+    if (casResult.count !== 1) {
       const current = await db.chatMessage.findUnique({
         where: { id: target.id },
-        select: { id: true, role: true, content: true, createdAt: true, retryStatus: true },
+        select: {
+          id: true,
+          role: true,
+          content: true,
+          createdAt: true,
+          retryStatus: true,
+        },
       });
+
       return res.status(409).json({
         status: 'error',
-        error: '이미 처리 중인 메시지',
+        error: '이미 처리 중이거나 답변이 완료된 메시지',
         userMessage: current ?? target,
       });
     }
+
+    claimedRetryMessageId = target.id;
 
     // 재시도 대상 메시지 기준 Solar용 채팅 맥락(검색 맥락 포함) 빌드
     const { context } = await buildChatWithContext(target.content, { userId });
@@ -397,6 +430,17 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
       assistantMessage,
     });
   } catch (err) {
+        if (claimedRetryMessageId) {
+      try {
+        await db.chatMessage.updateMany({
+          where: {
+            id: claimedRetryMessageId,
+            retryStatus: 'processing',
+          },
+          data: { retryStatus: 'failed' },
+        });
+      } catch {}
+    }
     console.error('chats POST /:id/retry error:', err);
     return res.status(500).json({ status: 'error', error: '서버 오류' });
   }

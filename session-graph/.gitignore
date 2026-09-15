@@ -1,0 +1,101 @@
+# 가상환경
+venv/
+.venv/
+*.egg-info/
+*.egg
+
+# Python 캐시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 키/비밀
+*.env
+.env.*
+*.pem
+*.key
+secret*
+credentials*
+
+# 대화 데이터
+samples/
+data/
+conversations/
+chat/
+
+# 로그
+*.log
+logs/
+install.log
+setup.log
+extraction_run.log
+concept_pipeline.log
+session_input_metadata_prepare.log
+session_input_prepare.log
+session_provenance.log
+session_workspace_check.log
+session_extraction_concept_run.log
+session_extraction_concept_integrated.log
+session_extraction_kr001_only.log
+session_extraction_kr002_only.log
+session_extraction_kr003_only.log
+session_extraction_reuse_kr001.log
+session_extraction_reuse_kr001_v2.log
+session_extraction_provenance_002_003.log
+session_concept_002_003.log
+session_concept_kr002_only.log
+session_concept_kr003_only.log
+session_graph_api.log
+session_link_verify.log
+session_reuse_copy.log
+
+# 분석 결과/중간 산출물
+concept_output/
+extraction_output/
+concept_output_sessions/
+extraction_output_sessions/
+connections/
+session_graph_failures/
+
+# 중간 보고서/검증서(통합 대상 아니면 제외 가능)
+*_report.json
+*_result.json
+*_connection_result*.json
+*_report.txt
+*_verification_result.json
+CONCEPTS_VERIFICATION.md
+CONCEPTS_VERIFICATION_FINAL.md
+SOLUTION_DOCUMENTATION.md
+session_link_final_report.json
+session_link_verification_result.json
+session_connection_report.txt
+session_kr_001_002_connection_result.json
+session_kr_001_002_connection_result_fixed.json
+verify_report_hash_missing.py
+verify_pickle3.py
+verify_quotes.py
+verify_pickle2.py
+verify_pickle4.py
+verify_pickle5.py
+verify_pickle_min.py
+verify_reconstruct.py
+
+# 임시 테스트/케이스용 폴더
+_session_view_test_tmp/
+_session_view_test_tmp2/
+_session_view_test_tmp3/
+_stv_case_tmp/
+_stv_case_tmp2/
+# 빌드/아웃
+*.out
+*.dist
+dist/
+build/
+
+
+# 패치 원본 잔여(패치 파일 자체는 제외하지 않음)

@@ -117,7 +117,8 @@ export async function generateFromRecord(
     ? existingNodes.map((n) => `## 기존 노드 ${n.id}\n제목: ${n.title}\n한 줄 요약: ${n.summary}\n내용: ${n.content}\n태그: ${n.tags.join(', ')}\n분류: ${n.categories.join(', ')}`).join('\n\n')
     : '기존 위키가 비어 있습니다.';
 
-  const systemPrompt = `<ai-wiki-SKILL.md>\n${skillPrompt}\n</ai-wiki-SKILL.md>\n\n출력은 반드시 JSON 객체 하나로만 반환한다.\n- 민감해 보이는 정보(비밀번호, 토큰, API키, 연락처, 비공개 링크, 사적 내용)가 보이면 본문에 쓰지 말고 민감정보 플래그로만 남긴다.\n- 기존 위키 노드가 있으면 먼저 읽고, 유사/중복 가능성이 있으면 병합/분리/연결 의견을 제안한다.\n- 새 노드는 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 노드 후보를 제안한다.\n- 태그/분류가 없으면 후보 분류를 붙인다.\n- 제안 type은 '추가'|'갱신'|'분리'|'병합'|'연결'|'보강'|'수정' 중 하나여야 한다.\n- proposals.evidenceSegments에는 근거를 제공한 원문 세그먼트 id를 넣는다. 반드시 relatedSegmentIds 중 하나 이상이어야 한다.\n- proposals.relatedSegmentIds도 채운다.`;
+  const systemPrompt = `<ai-wiki-SKILL.md>\n${skillPrompt}\n</ai-wiki-SKILL.md>\n\n출력은 반드시 JSON 객체 하나로만 반환한다.\n- 민감해 보이는 정보(비밀번호, 토큰, API키, 연락처, 비공개 링크, 사적 내용)가 보이면 본문에 쓰지 말고 민감정보 플래그로만 남긴다.\n- 기존 위키 노드가 있으면 먼저 읽고, 유사/중복 가능성이 있으면 병합/분리/연결 의견을 제안한다.\n- 새 노드는 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 노드 후보를 제안한다.\n- 태그/분류가 없으면 후보 분류를 붙인다.\n- proposals의 type은 '갱신' 또는 '연결'만 사용한다. 신규 노드는 newNodes로 제안한다.\n
+- 병합·분리·보강·수정 의견은 필요하면 reason에 설명하되 별도 proposals 항목으로 만들지 않는다.\n- proposals.evidenceSegments에는 근거를 제공한 원문 세그먼트 id를 넣는다. 반드시 relatedSegmentIds 중 하나 이상이어야 한다.\n- proposals.relatedSegmentIds도 채운다.`;
 
   const segmentListText =
     segments.length > 0
