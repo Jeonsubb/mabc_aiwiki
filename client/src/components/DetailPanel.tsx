@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import type { NodeSourceRecord } from "@shared/api";
 import { api } from "../services/api";
 import { Bookmark, Link as LinkIcon, MessageSquare, ArrowRight } from "lucide-react";
 import type { Thought } from "./ThoughtMapGraph";
 
 interface DetailPanelProps {
   thought: Thought | null;
+  records: NodeSourceRecord[];
 }
 
 const DEMO_SESSION = {
@@ -21,8 +23,7 @@ const DEMO_SESSION = {
   ],
 };
 
-export default function DetailPanel({ thought }: DetailPanelProps) {
-  const [showFullDialog, setShowFullDialog] = useState(false);
+export default function DetailPanel({ thought, records }: DetailPanelProps) {  const [showFullDialog, setShowFullDialog] = useState(false);
   useEffect(() => {
     setShowFullDialog(false);
   }, [thought?.id]);
@@ -54,6 +55,36 @@ export default function DetailPanel({ thought }: DetailPanelProps) {
 
         <div className="detail-panel-body">
           <p className="node-summary">
+          <div className="detail-section">
+          <div className="detail-section-head">
+            <MessageSquare size={14} aria-hidden="true" />
+            <span>출처 대화</span>
+          </div>
+
+          {records.length === 0 ? (
+            <p className="hint">연결된 원문이 없습니다.</p>
+          ) : (
+            records.map((record) => (
+              <details key={record.id} className="detail-section-quote">
+                <summary style={{ cursor: "pointer" }}>
+                  {record.conversationId}
+                  {" · "}
+                  {new Date(record.createdAt).toLocaleString("ko-KR")}
+                </summary>
+
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    marginTop: 12,
+                  }}
+                >
+                  {record.rawText}
+                </div>
+                </details>
+              ))
+            )}
+          </div>
             {DEMO_SESSION.summary}
             <br />
             <span className="demo-note">{DEMO_SESSION.summaryNote}</span>

@@ -43,8 +43,17 @@ export interface NodesResponse {
   nodes: WikiNode[];
 }
 
+export interface NodeSourceRecord {
+  id: string;
+  conversationId: string;
+  source: string;
+  rawText: string;
+  createdAt: string;
+}
+
 export interface NodeResponse {
   node: WikiNode;
+  records: NodeSourceRecord[];
 }
 
 export interface ProposalsResponse {
