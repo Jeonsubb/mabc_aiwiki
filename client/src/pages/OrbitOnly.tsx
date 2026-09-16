@@ -484,7 +484,16 @@ export default function OrbitOnly({
         const isSelected = nodeId === selected;
         const isConnected = selected != null && connectedIds.has(nodeId);
         const inTag = activeTag != null && tagNodeIds.has(nodeId);
-        if (isSelected) {
+
+        if (activeTag != null && !inTag) {
+          ud.targetColor = nodeBaseColor;
+          ud.baseScale = DEFAULT_SCALE;
+          ud.tierOpacity = 0.2;
+          ud.pulseAmplitude = 0.02;
+          ud.pulseScaleAmplitude = 0.02;
+          ud.targetScale = DEFAULT_SCALE;
+          ud.targetOpacity = 0.2;
+        } else if (isSelected) {
           ud.targetColor = nodeHighlightColor;
           ud.baseScale = SELECTED_SCALE;
           ud.tierOpacity = 1;
