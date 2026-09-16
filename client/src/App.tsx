@@ -51,6 +51,7 @@ export default function App({
               <Route path="/chats" element={<ChatsListPage />} />
               <Route path="/chats/:id" element={<ChatPage />} />
               <Route path="/kept" element={<PagePlaceholder title="간직한 생각" />} />
+              <Route path="/wiki" element={<WikiList />} />
               <Route path="/graph" element={<OrbitOnly />} />
               <Route path="*" element={<Navigate to="/" replace />} />
               
@@ -77,5 +78,6 @@ function currentPageForPath(): string {
   if (p === "/records") return "유입 기록";
   if (p === "/credentials") return "MCP 연결";
   if (p === "/search") return "검색";
+  if (p === "/wiki") return "내 위키";
   return "생각 지도";
 }
