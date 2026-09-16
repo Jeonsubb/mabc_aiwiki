@@ -21,22 +21,31 @@ function NodePageInner() {
   if (!node) return <p>노드를 찾지 못했습니다.</p>;
 
   return (
-    <div className="node-page">
-      <Link to="/proposals" className="btn btn-ghost">← 제안 목록</Link>      
-      <h2>{node.title}</h2>
-      <p className="node-summary">{node.summary}</p>
-      <div className="node-topics">
-        {node.topics.map((t) => (
-          <span key={t} className="badge">{t}</span>
-        ))}
+    <article className="node-page">
+      <header className="node-reading-header">
+        <p className="node-meta">
+          내 위키 · {new Date(node.updatedAt).toLocaleDateString("ko-KR")} 업데이트
+        </p>
+
+        <h2>{node.title}</h2>
+
+        <div className="node-topics">
+          {node.topics.slice(0, 3).map((topic, index) => (
+            <span key={`${topic}-${index}`} className="node-topic-chip">
+              {topic}
+            </span>
+          ))}
+        </div>
+
+        {node.summary && (
+          <p className="node-summary">{node.summary}</p>
+        )}
+      </header>
+
+      <div className="node-content">
+        {node.content || "아직 정리된 본문이 없습니다."}
       </div>
-      <div className="card node-content">
-        {node.content.split('\n').map((line, i) => (
-          <p key={i} className="node-line">{line}</p>
-        ))}
-      </div>
-      <p className="node-meta">업데이트: {new Date(node.updatedAt).toLocaleDateString()}</p>
-    </div>
+    </article>
   );
 }
 
