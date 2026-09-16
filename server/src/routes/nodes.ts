@@ -27,11 +27,33 @@ nodesRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const userId = getUserId(req);
     const node = await db.wikiNode.findFirst({
       where: { id: req.params.id, userId },
+      include: {
+        toNodes: {
+          where: { record: { userId } },
+          orderBy: { reflectedAt: 'desc' },
+          select: {
+            record: {
+              select: {
+                id: true,
+                conversationId: true,
+                source: true,
+                rawText: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!node) {
       return res.status(404).json({ error: '노드를 찾지 못함' });
     }
-    res.json({ node });
+    const { toNodes, ...nodeData } = node;
+
+    res.json({
+      node: nodeData,
+      records: toNodes.map((mapping) => mapping.record),
+    });
   } catch (err) {
     console.error('nodes GET /:id error:', err);
     res.status(500).json({ error: '서버 오류' });

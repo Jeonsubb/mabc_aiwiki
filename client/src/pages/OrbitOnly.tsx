@@ -134,7 +134,7 @@ export default function OrbitOnly({
 }:  OrbitOnlyProps = {}) {
   const SAMPLE_SESSION_NODES = useMemo<SessionNode[]>(() => {
     if (graphNodes.length === 0) {
-      return FALLBACK_SESSION_NODES;
+      return [];
     }
 
     const radius = Math.max(3, graphNodes.length * 0.55);
@@ -159,7 +159,7 @@ export default function OrbitOnly({
   const SAMPLE_EDGES = useMemo<ReadonlyArray<readonly [string, string]>>(
     () => {
       if (graphNodes.length === 0) {
-        return FALLBACK_EDGES;
+        return [];
       }
 
       const validNodeIds = new Set(graphNodes.map((node) => node.id));
@@ -177,7 +177,7 @@ export default function OrbitOnly({
 
   const TAG_DEFS = useMemo<TagDef[]>(() => {
     if (graphNodes.length === 0) {
-      return FALLBACK_TAG_DEFS;
+      return [];
     }
 
     const tagNodeIds = new Map<string, string[]>();
@@ -223,7 +223,7 @@ export default function OrbitOnly({
   const updateHighlightForActiveTagRef = useRef<((tagId: string | null) => void) | null>(null);
 
   useEffect(() => {
-    if (!mountRef.current) return;
+    if (!mountRef.current || SAMPLE_SESSION_NODES.length === 0) return;
 
     const scene = new THREE.Scene();
     scene.background = null;
