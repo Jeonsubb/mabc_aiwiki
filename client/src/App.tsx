@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import McpCredentials from "./pages/McpCredentials";
 import SearchPage from "./pages/SearchPage";
 import PagePlaceholder from "./pages/PagePlaceholder";
+import WikiList from "./pages/WikiList";
 
 export default function App({
   user,
