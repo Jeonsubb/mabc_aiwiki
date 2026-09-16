@@ -191,7 +191,6 @@ export default function OrbitOnly({
     }
 
     return Array.from(tagNodeIds.entries())
-      .slice(0, 8)
       .map(([tag, nodeIds]) => ({
         id: `tag-${tag}`,
         label: tag,
@@ -298,7 +297,7 @@ export default function OrbitOnly({
       const sprite = new THREE.Sprite(material);
       const position = node.position;
       sprite.position.set(position[0], position[1], position[2] + 0.002);
-      const baseScale = 0.22;
+      const baseScale = 0.55;
       sprite.scale.set(baseScale, baseScale, 1);
       sprite.userData = {
         nodeId: node.id,
@@ -826,9 +825,13 @@ export default function OrbitOnly({
         style={{
           position: 'absolute',
           left: 12,
+          right: 12,
           top: 12,
           display: 'flex',
           gap: 8,
+          overflowX: 'auto',
+          paddingBottom: 6,
+          zIndex: 2,
           pointerEvents: 'auto',
         }}
       >
@@ -838,6 +841,8 @@ export default function OrbitOnly({
             type="button"
             onClick={() => handleTagClick(tag.id)}
             style={{
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
               background: activeTagId === tag.id ? 'rgba(200, 214, 226, 0.18)' : 'rgba(200, 214, 226, 0.08)',
               border: '1px solid rgba(159, 182, 196, 0.3)',
               borderRadius: 5,
