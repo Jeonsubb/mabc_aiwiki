@@ -188,7 +188,15 @@ ${skillPrompt}
 - 태그 앞뒤 공백과 중복을 제거한다.
 
 갱신 제안 규칙:
-- 갱신은 제안하지 않는다.
+- 동일한 대상에 새로운 정보가 있을 때만 갱신을 제안한다.
+- targetNodeId에는 실제 기존 노드 ID를 사용한다.
+- before는 참고용이며 서버가 실제 현재 데이터를 다시 확인한다.
+- after에는 기존 내용과 새 내용을 합친 완성본을 작성한다.
+- after에는 summary, content, topics, tags, categories를 모두 포함한다.
+- 동일한 대상 노드에 여러 갱신 제안을 중복 생성하지 않는다.
+- evidence에는 갱신을 뒷받침하는 실제 원문 내용을 작성한다.
+- evidenceSegments와 relatedSegmentIds에는 현재 원문의 실제 세그먼트 ID만 넣는다.
+- 기존 노드 ID나 존재하지 않는 세그먼트 ID를 근거로 사용하지 않는다.
 `;
 
   const segmentListText =
