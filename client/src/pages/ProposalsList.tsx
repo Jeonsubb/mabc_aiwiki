@@ -27,6 +27,9 @@ function proposalStatusLabel(status: string) {
 export default function ProposalsList() {
   const [proposals, setProposals] = useState<ProposalsResponse['proposals']>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -35,6 +38,37 @@ export default function ProposalsList() {
       .catch(() => setProposals([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const isDeletable = (p: typeof proposals[0]) => p.status !== '제안됨';
+
+  const startDelete = (id: string) => {
+    if (deletingIds.has(id)) return;
+    setPendingDeleteId(id);
+    setDeleteErrorId(null);
+  };
+
+  const confirmDelete = async (id: string) => {
+    setDeletingIds((prev) => new Set(prev).add(id));
+    setDeleteErrorId(null);
+    try {
+      await api.deleteProposal(id);
+      setProposals((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      setDeleteErrorId(id);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setPendingDeleteId(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setPendingDeleteId(null);
+    setDeleteErrorId(null);
+  };
 
   if (loading) return <p className="hint">불러오는 중...</p>;
 

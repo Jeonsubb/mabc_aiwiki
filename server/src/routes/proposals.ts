@@ -399,3 +399,31 @@ const updatedNode = await tx.wikiNode.findUniqueOrThrow({
     res.status(500).json({ error: '서버 오류' });
   }
 });
+
+proposalsRouter.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req);
+    const proposal = await db.proposal.findFirst({
+      where: { id: req.params.id },
+      select: { id: true, userId: true, status: true },
+    });
+
+    if (!proposal) {
+      return res.status(404).json({ error: '제안을 찾지 못함' });
+    }
+
+    if (proposal.userId !== userId) {
+      return res.status(403).json({ error: '다른 사용자의 제안은 삭제할 수 없습니다' });
+    }
+
+    if (proposal.status === '제안됨') {
+      return res.status(409).json({ error: '제안됨 상태의 제안은 삭제할 수 없습니다' });
+    }
+
+    await db.proposal.delete({ where: { id: proposal.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('proposal delete error:', err);
+    res.status(500).json({ error: '서버 오류' });
+  }
+});

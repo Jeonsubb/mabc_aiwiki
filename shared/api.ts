@@ -140,6 +140,11 @@ export interface McpCredentialRevokeResponse {
   ok: boolean;
   revokedAt: string;
 }
+
+export interface DeleteProposalResponse {
+  ok: boolean;
+}
+
 export type RetryStatus = 'processing' | 'done' | 'failed';
 
 export interface ChatMessage {
@@ -230,4 +235,3 @@ export function getAuthSession(): AuthSession | null {
 export function setAuthSession(session: AuthSession | null): void {
   _authSession = session;
 }
-

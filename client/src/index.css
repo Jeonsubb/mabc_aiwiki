@@ -1473,6 +1473,63 @@ button:focus-visible {
   margin-top: var(--sp-xs);
 }
 
+.proposal-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-sm);
+  margin-top: var(--sp-sm);
+  padding-top: var(--sp-sm);
+  border-top: 1px solid var(--border-soft);
+}
+
+.proposal-delete-btn {
+  background: transparent;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  border-radius: var(--r-md);
+  padding: 0 var(--sp-sm);
+  font-size: var(--type-button);
+  min-height: 2rem;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.proposal-delete-btn:hover {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.proposal-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.proposal-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  margin-top: var(--sp-sm);
+  padding-top: var(--sp-sm);
+}
+
+.proposal-confirm-text {
+  font-size: var(--type-body-sm);
+  color: var(--color-warning);
+  margin: 0;
+}
+
+.proposal-confirm-actions {
+  display: flex;
+  gap: var(--sp-xs);
+}
+
+.proposal-error-msg {
+  font-size: var(--type-body-sm);
+  color: var(--color-error);
+  margin: var(--sp-xs) 0 0;
+}
+
 /* ---------- Proposal detail / decide ---------- */
 
 .decide-section {

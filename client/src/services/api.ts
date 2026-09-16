@@ -16,6 +16,7 @@ import type {
   McpCredentialsListResponse,
   McpCredentialCreateResponse,
   McpCredentialRevokeResponse,
+  DeleteProposalResponse,
 } from '@shared/api';
 
 export interface WikiSearchResponse {
@@ -108,4 +109,5 @@ export const api = {
     del<McpCredentialRevokeResponse>(`/credentials/${id}`),
   searchWikiNodes: (q: string) => get<WikiSearchResponse>(`/search/wiki-nodes?q=${encodeURIComponent(q)}&limit=20`),
   searchChatMessages: (q: string) => get<ChatSearchResponse>(`/search/chat-messages?q=${encodeURIComponent(q)}&limit=20`),
+  deleteProposal: (id: string) => del<DeleteProposalResponse>(`/proposals/${id}`),
 };
