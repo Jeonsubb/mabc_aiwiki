@@ -136,6 +136,12 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
   const [activeTagId, setActiveTagId] = useState<string | null>(null);
   const activeTagIdRef = useRef<string | null>(null);
   const handleTagClick = (tagId: string) => {
+    selectedIdRef.current = null;
+    setSelectedId(null);
+    setTitleVisible(false);
+    setTitleContent('');
+    setInfoOpen(false);
+    onSelect?.(null);
     setActiveTagId((prev) => (prev === tagId ? null : tagId));
   };
   const labelRef = useRef<HTMLDivElement | null>(null);
