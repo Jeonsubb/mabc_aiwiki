@@ -275,7 +275,70 @@ export async function generateCandidatesForRecord(
         excluded.push({ source: 'proposal', reason: validation.reason ?? '' });
         continue;
       }
+      if (propDraft.type === '연결') {
+  const sourceNodeId = propDraft.sourceNodeId;
+  const connectionTargetNodeId = propDraft.targetNodeId;
 
+  if (!sourceNodeId || !connectionTargetNodeId) {
+    excluded.push({
+      source: 'proposal',
+      reason: '연결 제안에 sourceNodeId 또는 targetNodeId가 없음',
+    });
+    continue;
+  }
+
+  const [existingRelationship, pendingConnectionProposal] =
+    await Promise.all([
+      db.nodeRelationship.findFirst({
+        where: {
+          userId,
+          OR: [
+            {
+              sourceNodeId,
+              targetNodeId: connectionTargetNodeId,
+            },
+            {
+              sourceNodeId: connectionTargetNodeId,
+              targetNodeId: sourceNodeId,
+            },
+          ],
+        },
+      }),
+      db.proposal.findFirst({
+        where: {
+          userId,
+          type: '연결',
+          status: '제안됨',
+          OR: [
+            {
+              sourceNodeId,
+              targetNodeId: connectionTargetNodeId,
+            },
+            {
+              sourceNodeId: connectionTargetNodeId,
+              targetNodeId: sourceNodeId,
+            },
+          ],
+        },
+      }),
+    ]);
+
+  if (existingRelationship) {
+    excluded.push({
+      source: 'proposal',
+      reason: `이미 연결된 노드 관계임: ${sourceNodeId} ↔ ${connectionTargetNodeId}`,
+    });
+    continue;
+  }
+
+  if (pendingConnectionProposal) {
+    excluded.push({
+      source: 'proposal',
+      reason: `이미 대기 중인 연결 제안이 있음: ${sourceNodeId} ↔ ${connectionTargetNodeId}`,
+    });
+    continue;
+  }
+}
       const targetNodeId = propDraft.targetNodeId || validation.targetNode?.id || undefined;
       const relatedRecordId = record.id;
 

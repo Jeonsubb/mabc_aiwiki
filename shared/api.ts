@@ -239,3 +239,40 @@ export function getAuthSession(): AuthSession | null {
 export function setAuthSession(session: AuthSession | null): void {
   _authSession = session;
 }
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  summary: string;
+  topics: string[];
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface GraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  relationType: string;
+  description: string | null;
+  evidence: string;
+  status: 'confirmed';
+  createdAt: string;
+}
+
+export interface SuggestedGraphEdge {
+  proposalId: string;
+  source: string;
+  target: string;
+  description: string;
+  reason: string;
+  evidence: string;
+  status: 'suggested';
+  createdAt: string;
+}
+
+export interface GraphResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  suggestedEdges: SuggestedGraphEdge[];
+}

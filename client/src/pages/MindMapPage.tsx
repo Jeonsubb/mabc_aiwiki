@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import OrbitOnly from "./OrbitOnly";
 import DetailPanel from "../components/DetailPanel";
 import { api } from "../services/api";
-import type { WikiNode } from "@shared/api";
+import type { WikiNode, GraphNode, GraphEdge } from "@shared/api";
 import type { Thought } from "../components/ThoughtMapGraph";
 
 export default function MindMapPage() {
 const [selectedThought, setSelectedThought] = useState<Thought | null>(null);
 const [thoughts, setThoughts] = useState<Thought[]>([]);
+const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
 useEffect(() => {
   api
     .getNodes()
@@ -24,6 +26,19 @@ useEffect(() => {
       ),
     )
     .catch(() => setThoughts([]));
+}, []);
+useEffect(() => {
+  api
+    .getGraph()
+    .then((res) => {
+      setGraphNodes(res.nodes);
+      setGraphEdges(res.edges);
+    })
+    .catch((error) => {
+      console.error("그래프 조회 실패:", error);
+      setGraphNodes([]);
+      setGraphEdges([]);
+    });
 }, []);
 
 
@@ -42,8 +57,10 @@ useEffect(() => {
       <section className="graph-area" aria-label="생각 지도 탐색 영역">
         <div className="graph-area-inner">
           <OrbitOnly
-            infoPanelVisible={false}
-            onSelect={(node) => {
+  infoPanelVisible={false}
+  graphNodes={graphNodes}
+  graphEdges={graphEdges}
+  onSelect={(node) => {
               setSelectedThought(node ? {
                 id: node.id,
                 title: node.title,

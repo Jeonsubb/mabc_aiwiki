@@ -117,8 +117,61 @@ export async function generateFromRecord(
     ? existingNodes.map((n) => `## 기존 노드 ${n.id}\n제목: ${n.title}\n한 줄 요약: ${n.summary}\n내용: ${n.content}\n태그: ${n.tags.join(', ')}\n분류: ${n.categories.join(', ')}`).join('\n\n')
     : '기존 위키가 비어 있습니다.';
 
-  const systemPrompt = `<ai-wiki-SKILL.md>\n${skillPrompt}\n</ai-wiki-SKILL.md>\n\n출력은 반드시 JSON 객체 하나로만 반환한다.\n- 민감해 보이는 정보(비밀번호, 토큰, API키, 연락처, 비공개 링크, 사적 내용)가 보이면 본문에 쓰지 말고 민감정보 플래그로만 남긴다.\n- 기존 위키 노드가 있으면 먼저 읽고, 유사/중복 가능성이 있으면 병합/분리/연결 의견을 제안한다.\n- 새 노드는 제목, 한 줄 요약, 핵심 내용, 관련 아이디어/링크, 연결 가능한 기존 노드 후보를 제안한다.\n- 태그/분류가 없으면 후보 분류를 붙인다.\n- proposals의 type은 '갱신' 또는 '연결'만 사용한다. 신규 노드는 newNodes로 제안한다.\n
-- 병합·분리·보강·수정 의견은 필요하면 reason에 설명하되 별도 proposals 항목으로 만들지 않는다.\n- proposals.evidenceSegments에는 근거를 제공한 원문 세그먼트 id를 넣는다. 반드시 relatedSegmentIds 중 하나 이상이어야 한다.\n- proposals.relatedSegmentIds도 채운다.`;
+    const systemPrompt = `<ai-wiki-SKILL.md>
+${skillPrompt}
+</ai-wiki-SKILL.md>
+
+출력은 반드시 JSON 객체 하나로만 반환한다.
+
+공통 규칙:
+- 민감해 보이는 정보(비밀번호, 토큰, API 키, 연락처, 비공개 링크, 사적 내용)가 보이면 본문에 쓰지 말고 민감정보 플래그로만 남긴다.
+- 기존 위키 노드가 있으면 반드시 먼저 읽고 새 입력과 비교한다.
+- 기존 위키와 같은 주제이거나 기존 내용을 보강할 수 있으면 신규 노드보다 갱신 제안을 우선한다.
+- 완전히 독립된 새 주제일 때만 newNodes에 신규 노드를 제안한다.
+- 태그와 분류가 없으면 적절한 후보를 붙인다.
+- proposals의 type은 '갱신' 또는 '연결'만 사용한다.
+- 신규 노드는 proposals가 아니라 newNodes에 넣는다.
+- 병합·분리·보강·수정 의견은 필요하면 reason에 설명하되 별도 proposals 항목으로 만들지 않는다.
+- proposals.evidenceSegments에는 근거를 제공한 현재 원문 세그먼트 ID를 넣는다.
+- proposals.relatedSegmentIds에도 관련된 현재 원문 세그먼트 ID를 넣는다.
+- evidenceSegments와 relatedSegmentIds에 기존 노드 ID나 존재하지 않는 ID를 넣지 않는다.
+- 근거가 약하거나 추측에 가까우면 제안을 만들지 않는다.
+
+갱신 제안 규칙:
+- 제목, 핵심 대상, 주제 또는 목적이 기존 노드와 같으면 type='갱신'을 우선한다.
+- targetNodeId에는 아래 기존 위키 목록에 있는 실제 노드 ID를 정확히 사용한다.
+- before는 참고용이며 실제 변경 전 데이터는 서버가 DB에서 다시 읽는다.
+- after는 새로 추가할 내용만 반환하지 말고 기존 내용과 새 내용을 합친 완성본으로 반환한다.
+- after에는 summary, content, topics, tags, categories를 모두 포함한다.
+- 새로운 정보가 없고 기존 내용과 실질적으로 같으면 갱신 제안을 만들지 않는다.
+- 동일한 대상 노드에 여러 갱신 제안을 중복 생성하지 않는다.
+- 같은 주제에 대해 newNodes와 갱신 제안을 동시에 만들지 않는다.
+
+위키 노드 관계 제안 규칙:
+- 새 대화가 사용자 소유의 기존 위키 노드 두 개 이상을 구체적으로 연결할 때만 type='연결' 제안을 만든다.
+- sourceNodeId와 targetNodeId에는 아래 기존 위키 목록에 실제로 존재하는 서로 다른 노드 ID를 정확히 사용한다.
+- sourceNodeId와 targetNodeId가 같으면 안 된다.
+- 단순히 일반 단어, 카테고리 또는 태그 하나가 같다는 이유만으로 연결하지 않는다.
+- 두 노드 사이에 동일한 대상, 사건, 계획, 결정, 원인·결과, 활용 또는 보강 관계가 있어야 한다.
+- action에는 어떤 두 위키를 어떻게 연결할지 짧게 작성한다.
+- reason에는 두 노드의 관계와 사용자에게 유용한 이유를 구체적으로 작성한다.
+- evidence에는 현재 새 대화에서 관계를 뒷받침하는 실제 내용을 작성한다.
+- evidenceSegments에는 관계의 근거가 있는 현재 대화 세그먼트 ID를 넣는다.
+- relatedSegmentIds에도 동일한 근거 세그먼트 ID를 넣는다.
+- 근거가 약하거나 한쪽 위키와만 관련되면 연결 제안을 만들지 않는다.
+- 동일한 sourceNodeId와 targetNodeId 조합을 한 응답에서 중복 생성하지 않는다.
+
+연결 제안 예시:
+{
+  "type": "연결",
+  "sourceNodeId": "기존-위키-ID-1",
+  "targetNodeId": "기존-위키-ID-2",
+  "action": "부산 여행 계획과 여행 콘텐츠 제작 계획 연결",
+  "reason": "부산 여행 일정이 콘텐츠 촬영 소재와 제작 일정으로 활용될 수 있음",
+  "evidence": "사용자가 부산 여행 중 방문 장소를 촬영해 콘텐츠로 만들겠다고 언급함",
+  "evidenceSegments": ["현재-세그먼트-ID"],
+  "relatedSegmentIds": ["현재-세그먼트-ID"]
+}`;
 
   const segmentListText =
     segments.length > 0

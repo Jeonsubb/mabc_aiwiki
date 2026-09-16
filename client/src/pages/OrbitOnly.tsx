@@ -1,8 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { select } from 'three/tsl';
-
+import type { GraphNode, GraphEdge } from '@shared/api';
 function mulberryHash(seed: number) {
   let s = seed | 0;
   return () => {
@@ -63,7 +62,7 @@ interface SessionNode {
   groupId: number;
 }
 
-const SAMPLE_SESSION_NODES: SessionNode[] = [
+const FALLBACK_SESSION_NODES: SessionNode[] = [
   // 묶음1: 왼쪽 위 / 작은 별자리
   { id: 'g1-1', title: '세션 A-1', position: [-3.9, 2.6, 0.0], groupId: 1 },
   { id: 'g1-2', title: '세션 A-2', position: [-2.7, 3.1, 0.0], groupId: 1 },
@@ -82,8 +81,7 @@ const SAMPLE_SESSION_NODES: SessionNode[] = [
   { id: 'g3-3', title: '세션 C-3', position: [1.7, -2.7, 0.0], groupId: 3 },
   { id: 'g3-4', title: '세션 C-4', position: [-0.2, -2.4, 0.0], groupId: 3 },
 ];
-
-const SAMPLE_EDGES = [
+const FALLBACK_EDGES = [
   ['g1-1', 'g1-2'],
   ['g1-2', 'g1-3'],
   ['g1-3', 'g1-4'],
@@ -97,13 +95,14 @@ const SAMPLE_EDGES = [
   ['g2-3', 'g3-2'],
 ] as const;
 
+
 type TagDef = {
   id: string;
   label: string;
   nodeIds: string[];
 };
 
-const TAG_DEFS: TagDef[] = [
+const FALLBACK_TAG_DEFS: TagDef[] = [
   { id: 'tag-a', label: '태그 A', nodeIds: ['g1-1', 'g1-2', 'g1-3', 'g1-4'] },
   { id: 'tag-b', label: '태그 B', nodeIds: ['g2-1', 'g2-2', 'g2-3', 'g2-4'] },
   { id: 'tag-c', label: '태그 C', nodeIds: ['g3-1', 'g3-2', 'g3-3', 'g3-4'] },
@@ -122,10 +121,84 @@ const DEMO_SESSION = {
 
 interface OrbitOnlyProps {
   infoPanelVisible?: boolean;
+  graphNodes?: GraphNode[];
+  graphEdges?: GraphEdge[];
   onSelect?: (node: SessionNode | null) => void;
 }
 
-export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOnlyProps = {}) {
+export default function OrbitOnly({
+  infoPanelVisible = true,
+  graphNodes = [],
+  graphEdges = [],
+  onSelect,
+}:  OrbitOnlyProps = {}) {
+  const SAMPLE_SESSION_NODES = useMemo<SessionNode[]>(() => {
+    if (graphNodes.length === 0) {
+      return FALLBACK_SESSION_NODES;
+    }
+
+    const radius = Math.max(3, graphNodes.length * 0.55);
+
+    return graphNodes.map((node, index) => {
+      const angle = (index / graphNodes.length) * Math.PI * 2;
+      const distance = radius + (index % 2) * 0.8;
+
+      return {
+        id: node.id,
+        title: node.title,
+        position: [
+          Math.cos(angle) * distance,
+          Math.sin(angle) * distance,
+          0,
+        ],
+        groupId: (index % 3) + 1,
+      };
+    });
+  }, [graphNodes]);
+
+  const SAMPLE_EDGES = useMemo<ReadonlyArray<readonly [string, string]>>(
+    () => {
+      if (graphNodes.length === 0) {
+        return FALLBACK_EDGES;
+      }
+
+      const validNodeIds = new Set(graphNodes.map((node) => node.id));
+
+      return graphEdges
+        .filter(
+          (edge) =>
+            validNodeIds.has(edge.source) &&
+            validNodeIds.has(edge.target),
+        )
+        .map((edge) => [edge.source, edge.target] as const);
+    },
+    [graphNodes, graphEdges],
+  );
+
+  const TAG_DEFS = useMemo<TagDef[]>(() => {
+    if (graphNodes.length === 0) {
+      return FALLBACK_TAG_DEFS;
+    }
+
+    const tagNodeIds = new Map<string, string[]>();
+
+    for (const node of graphNodes) {
+      for (const tag of node.tags) {
+        const nodeIds = tagNodeIds.get(tag) ?? [];
+        nodeIds.push(node.id);
+        tagNodeIds.set(tag, nodeIds);
+      }
+    }
+
+    return Array.from(tagNodeIds.entries())
+      .slice(0, 8)
+      .map(([tag, nodeIds]) => ({
+        id: `tag-${tag}`,
+        label: tag,
+        nodeIds,
+      }));
+  }, [graphNodes]);
+
   const mountRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -166,8 +239,8 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
     }
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
+    const contentWidth = Math.max(maxX - minX, 4);
+    const contentHeight = Math.max(maxY - minY, 4);
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     const padding = 0.15;
@@ -718,7 +791,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         mountRef.current.removeChild(renderer.domElement);
       }
     };
-  }, []);
+    }, [SAMPLE_SESSION_NODES, SAMPLE_EDGES, TAG_DEFS]);
 
   useEffect(() => {
   selectedIdRef.current = selectedId;

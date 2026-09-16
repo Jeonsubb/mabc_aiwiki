@@ -260,7 +260,7 @@ def _require_api_key() -> str:
     return key
 
 
-def run_extraction(session_id: str) -> Optional[Path]:
+def run_extraction(session_id: str, user_id: str = "") -> Optional[Path]:
     """KnowledgeGraphExtractor 실행 또는 기존 결과 재사용. 추출 JSON 경로 반환.
 
     기존 결과가 있어도 현재 원문과 원문 해시가 일치하지 않으면 재사용하지 않고
@@ -300,7 +300,7 @@ def run_extraction(session_id: str) -> Optional[Path]:
 
     config = ProcessingConfig(
         model_path="solar-pro4",
-        data_directory=str(SAMPLES_DIR),
+        data_directory=str(SAMPLES_DIR(user_id)),
         filename_pattern=f"{session_id}.jsonl",
         output_directory=str(ext_ws),
         batch_size_triple=1,
@@ -333,7 +333,11 @@ def run_extraction(session_id: str) -> Optional[Path]:
     return Path(results[0])
 
 
-def run_concept(session_id: str, extraction_result_path: Path) -> Optional[Path]:
+def run_concept(
+    session_id: str,
+    extraction_result_path: Path,
+    user_id: str = "",
+) -> Optional[Path]:
     """개념화 + 개념 CSV + MultiDiGraph GraphML 생성. GraphML 경로 반환.
 
     같은 kg_extraction 폴더에 깨진/구버전 JSON이 있어도, 현재 원문에 대응하는

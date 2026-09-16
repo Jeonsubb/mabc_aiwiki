@@ -4,6 +4,7 @@ import { proposalsRouter } from './proposals';
 import { recordsRouter } from './records';
 import { chatsRouter } from './chats';
 import { searchRouter } from '../search/routes';
+import { graphRouter } from './graph';
 
 
 const router = Router();
@@ -12,5 +13,6 @@ router.use('/proposals', proposalsRouter);
 router.use('/records', recordsRouter);
 router.use('/chats', chatsRouter);
 router.use('/search', searchRouter);
+router.use('/graph', graphRouter);
 
 export { router as apiRouter };
