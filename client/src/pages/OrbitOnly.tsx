@@ -601,6 +601,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
           setShowFullDialog(false);
         }
       } else {
+        setActiveTagId(null);
         setSelectedId(null);
         setTitleVisible(false);
         updateHighlightForSelectedRef.current?.(null);
