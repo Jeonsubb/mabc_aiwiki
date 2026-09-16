@@ -2325,3 +2325,26 @@ code, pre {
 .card ul { margin: var(--sp-md) 0 0 !important; }
 
 .btn { white-space: nowrap; flex-shrink: 0; }
+
+.connection-tags {
+  margin-top: 12px;
+}
+
+.connection-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.connection-tag {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid rgba(159, 182, 196, 0.3);
+  border-radius: 12px;
+  background: rgba(159, 182, 196, 0.1);
+  color: inherit;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

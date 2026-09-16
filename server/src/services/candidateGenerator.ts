@@ -1,6 +1,10 @@
 import { Prisma } from '@prisma/client';
 import { db } from '../db';
-import { generateFromRecord, type SolarResult } from '../solar';
+import {
+  generateFromRecord,
+  normalizeTags,
+  type SolarResult,
+} from '../solar';
 
 export interface CandidateGenerationResult {
   status: SolarResult['status'];
@@ -170,6 +174,15 @@ export async function generateCandidatesForRecord(
     },
   });
 
+  const existingRelationships = await db.nodeRelationship.findMany({
+    where: { userId },
+    select: { tags: true },
+  });
+
+  const existingTags = normalizeTags([
+    ...existingNodes.flatMap((node) => node.tags),
+    ...existingRelationships.flatMap((relationship) => relationship.tags),
+  ]);
   const recordSegmentIdSet = new Set(segments.map((s) => s.id));
   const existingNodesById = new Map(existingNodes.map((n) => [n.id, { id: n.id, userId: n.userId }]));
   const excluded: CandidateGenerationResult['excluded'] = [];
@@ -180,6 +193,7 @@ export async function generateCandidatesForRecord(
     segments,
     record.id,
     record.context as Record<string, unknown> | undefined,
+    existingTags,
   );
 
   let skillHash: string | null = null;
@@ -264,6 +278,26 @@ export async function generateCandidatesForRecord(
       }
 
       if (!propDraft.action && !propDraft.reason) continue;
+
+            if (propDraft.type === '연결') {
+        propDraft.tags = normalizeTags(propDraft.tags, existingTags);
+
+        if (propDraft.tags.length === 0) {
+          excluded.push({
+            source: 'proposal',
+            reason: '연결 태그가 없어 연결 제안을 제외함',
+          });
+          continue;
+        }
+
+        if (!propDraft.evidence.trim()) {
+          excluded.push({
+            source: 'proposal',
+            reason: '연결 근거가 없어 연결 제안을 제외함',
+          });
+          continue;
+        }
+      }
 
       const validation = validateProposalDraft(
         propDraft,
@@ -385,6 +419,7 @@ const changePayload = JSON.parse(JSON.stringify({
   action: propDraft.action,
   reason: propDraft.reason,
   evidence: propDraft.evidence,
+  tags: propDraft.type === '연결' ? propDraft.tags : undefined,
   relatedSegmentIds: propDraft.relatedSegmentIds,
   relatedRecordId: propDraft.relatedRecordId,
   before: beforePayload,

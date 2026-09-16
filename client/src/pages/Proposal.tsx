@@ -57,6 +57,11 @@ function ConnectionProposalPreview({ proposal }: { proposal: Proposal }) {
       ? payload.schemaReason.trim()
       : undefined;
 
+  const rawTags = Array.isArray(payload.tags)
+    ? payload.tags.filter((t): t is string => typeof t === 'string' && t.trim() !== '')
+    : [];
+  const tags = [...new Set(rawTags.map((t) => t.trim()))];
+
   const sourceTitle =
     proposal.sourceNode?.title ??
     proposal.sourceNodeId ??
@@ -106,6 +111,17 @@ function ConnectionProposalPreview({ proposal }: { proposal: Proposal }) {
             <span className="connection-schema-label">스키마 판단</span>
             {' '}{schemaReason}
           </p>
+        )}
+
+        {tags.length > 0 && (
+          <div className="connection-tags">
+            <span className="connection-schema-label">연결 태그</span>
+            <div className="connection-tag-list">
+              {tags.map((tag) => (
+                <span key={tag} className="connection-tag">{tag}</span>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
