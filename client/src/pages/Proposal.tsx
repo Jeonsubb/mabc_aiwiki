@@ -153,8 +153,124 @@ function ConnectionProposalPreview({ proposal }: { proposal: Proposal }) {
   );
 }
 
+function ConnectionNewNodePreview({
+  proposal,
+}: {
+  proposal: Proposal;
+}) {
+  const target = proposal.connectionTargetNode ?? null;
+  const targetId = proposal.connectionTargetNodeId;
+
+  const targetTitle =
+    proposal.connectionTargetNode?.title ??
+    targetId ??
+    '연결 대상 위키를 찾을 수 없음';
+
+  const relationType =
+    typeof proposal.connectionRelationType === 'string' &&
+    proposal.connectionRelationType.trim()
+      ? proposal.connectionRelationType.trim()
+      : '연관';
+
+  const schemaReason =
+    typeof proposal.connectionSchemaReason === 'string' &&
+    proposal.connectionSchemaReason.trim()
+      ? proposal.connectionSchemaReason.trim()
+      : undefined;
+
+  const rawTags =
+    Array.isArray(proposal.connectionTags)
+      ? proposal.connectionTags.filter(
+          (t): t is string => typeof t === 'string' && t.trim() !== '',
+        )
+      : [];
+  const tags = [...new Set(rawTags.map((t) => t.trim()))];
+
+  return (
+    <div className="connection-preview">
+      <div className="connection-node-card">
+        <span className="connection-node-label">새로 만들 위키</span>
+        <strong className="connection-node-title">
+          {proposal.draftPayload && typeof proposal.draftPayload === 'object'
+            ? String((proposal.draftPayload as Record<string, unknown>).title ?? '')
+            : '새 위키'}
+        </strong>
+        {proposal.draftPayload &&
+          typeof proposal.draftPayload === 'object' &&
+          proposal.reason && (
+            <p className="connection-node-summary">{proposal.reason}</p>
+          )}
+      </div>
+
+      <div className="connection-relation">
+        <span className="badge badge-green">{relationType}</span>
+        <span className="connection-arrow" aria-hidden="true">
+          →
+        </span>
+        {proposal.connectionReason && (
+          <p className="connection-action">{proposal.connectionReason}</p>
+        )}
+
+        {schemaReason && (
+          <p className="connection-schema-reason">
+            <span className="connection-schema-label">관계 판단</span>
+            {' '}{schemaReason}
+          </p>
+        )}
+
+        {tags.length > 0 && (
+          <div className="connection-tags">
+            <span className="connection-schema-label">연결 태그</span>
+            <div className="connection-tag-list">
+              {tags.map((tag) => (
+                <span key={tag} className="connection-tag">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="connection-node-card">
+        <span className="connection-node-label">연결 대상 위키</span>
+        {target ? (
+          <Link
+            to={`/node/${target.id}`}
+            className="connection-node-title"
+          >
+            {targetTitle}
+          </Link>
+        ) : targetId ? (
+          <Link
+            to={`/node/${targetId}`}
+            className="connection-node-title"
+          >
+            {targetTitle}
+          </Link>
+        ) : (
+          <strong className="connection-node-title">{targetTitle}</strong>
+        )}
+
+        {proposal.connectionTargetNode?.summary && (
+          <p className="connection-node-summary">
+            {proposal.connectionTargetNode.summary}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function renderCompare(proposal: Proposal) {
   if (proposal.type === '추가') {
+    const hasConnection =
+      proposal.connectionTargetNodeId ||
+      proposal.connectionTargetNode ||
+      proposal.connectionReason ||
+      proposal.connectionRelationType ||
+      proposal.connectionTags?.length;
+
     return (
       <div className="compare">
         <div className="compare-col">
@@ -165,6 +281,12 @@ function renderCompare(proposal: Proposal) {
           <h4>변경 후</h4>
           <NewNodePreview payload={proposal.draftPayload} />
         </div>
+        {hasConnection && (
+          <div className="compare-col compare-col--connection">
+            <h4>연결 대상</h4>
+            <ConnectionNewNodePreview proposal={proposal} />
+          </div>
+        )}
       </div>
     );
   }

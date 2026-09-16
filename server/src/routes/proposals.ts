@@ -46,36 +46,83 @@ proposalsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => 
     const proposal = await db.proposal.findFirst({
       where: { id: req.params.id, userId },
       include: {
-  evidence: {
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      segmentId: true,
-      quote: true,
-      originalStart: true,
-      originalEnd: true,
-    },
-  },
-  sourceNode: {
-    select: {
-      id: true,
-      title: true,
-      summary: true,
-    },
-  },
-  targetNode: {
-    select: {
-      id: true,
-      title: true,
-      summary: true,
-    },
-  },
-},
+        evidence: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            segmentId: true,
+            quote: true,
+            originalStart: true,
+            originalEnd: true,
+          },
+        },
+        sourceNode: {
+          select: {
+            id: true,
+            title: true,
+            summary: true,
+          },
+        },
+        targetNode: {
+          select: {
+            id: true,
+            title: true,
+            summary: true,
+          },
+        },
+      },
     });
     if (!proposal) {
       return res.status(404).json({ error: '제안을 찾지 못함' });
     }
-    res.json({ proposal });
+        const payload =
+      proposal.type === '추가' &&
+      proposal.draftPayload &&
+      typeof proposal.draftPayload === 'object' &&
+      !Array.isArray(proposal.draftPayload)
+        ? proposal.draftPayload as Record<string, unknown>
+        : {};
+
+    const readText = (value: unknown): string =>
+      typeof value === 'string' ? value.trim() : '';
+
+    const connectionTargetNodeId =
+      readText(payload.connectionTargetNodeId);
+
+    const connectionTargetNode = connectionTargetNodeId
+      ? await db.wikiNode.findFirst({
+          where: {
+            id: connectionTargetNodeId,
+            userId,
+          },
+          select: {
+            id: true,
+            title: true,
+            summary: true,
+          },
+        })
+      : null;
+
+    res.json({
+      proposal: {
+        ...proposal,
+        connectionTargetNodeId:
+          connectionTargetNodeId || undefined,
+        connectionTargetNode,
+        connectionReason: connectionTargetNodeId
+          ? readText(payload.connectionReason)
+          : undefined,
+        connectionRelationType: connectionTargetNodeId
+          ? readText(payload.connectionRelationType)
+          : undefined,
+        connectionSchemaReason: connectionTargetNodeId
+          ? readText(payload.connectionSchemaReason)
+          : undefined,
+        connectionTags: connectionTargetNodeId
+          ? normalizeTags(payload.connectionTags)
+          : [],
+      },
+    });
   } catch (err) {
     console.error('proposals GET /:id error:', err);
     res.status(500).json({ error: '서버 오류' });
@@ -95,6 +142,16 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
       include: {
         sourceNode: { select: { id: true, userId: true, tags: true } },
         targetNode: { select: { id: true, userId: true, tags: true } },
+        evidence: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            segmentId: true,
+            quote: true,
+            originalStart: true,
+            originalEnd: true,
+          },
+        },
       },
     });
     if (!proposal) {
@@ -119,7 +176,7 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
     if (action === '수락') {
       if (isNewNodeProposal) {
         const payload = proposal.draftPayload;
-        if (!payload || typeof payload !== 'object') {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {          
           return res.status(400).json({ error: 'draftPayload가 없어 노드를 생성할 수 없습니다' });
         }
 
@@ -128,11 +185,30 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
         const summary = String(p.summary ?? '');
         const content = String(p.content ?? '');
         const topics = Array.isArray(p.topics) ? p.topics.filter((x): x is string => typeof x === 'string') : [];
-        const tags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
-        const categories = Array.isArray(p.categories) ? p.categories.filter((x): x is string => typeof x === 'string') : [];
+        const tags = normalizeTags(p.tags);
+        const categories = Array.isArray(p.categories)
+          ? p.categories.filter((x): x is string => typeof x === 'string')
+          : [];
 
         if (!title.trim()) {
           return res.status(400).json({ error: 'draftPayload에 title이 필요합니다' });
+        }
+
+        const connectionTargetNodeId = typeof p.connectionTargetNodeId === 'string'
+        ? p.connectionTargetNodeId.trim()
+        : '';
+
+        if (connectionTargetNodeId) {
+          const connTarget = await db.wikiNode.findFirst({
+            where: { id: connectionTargetNodeId, userId },
+            select: { id: true, userId: true, tags: true },
+          });
+          if (!connTarget) {
+            return res.status(404).json({ error: '연결 대상 노드를 찾을 수 없습니다' });
+          }
+          if (connTarget.userId !== userId) {
+            return res.status(403).json({ error: '다른 사용자 노드는 연결할 수 없습니다' });
+          }
         }
 
         const result = await db.$transaction(async (tx) => {
@@ -144,7 +220,7 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
               summary,
               content,
               topics,
-              tags,
+              tags: [],
               categories,
               latestVersion: 1,
             },
@@ -157,7 +233,7 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
               summary,
               content,
               topics,
-              tags,
+              tags: [],
               categories,
               changedBy: 'user',
               changeType: '생성',
@@ -175,6 +251,191 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
             });
           }
 
+          const tagNodes = await tx.wikiNode.findMany({
+            where: { userId },
+            select: { tags: true },
+          });
+
+          const tagRelations = await tx.nodeRelationship.findMany({
+            where: { userId },
+            select: { tags: true },
+          });
+
+          const existingRecordTags = normalizeTags([
+            ...tagNodes.flatMap((node) => node.tags),
+            ...tagRelations.flatMap((relation) => relation.tags),
+          ]);
+
+          const newNodeTags = normalizeTags(tags, existingRecordTags);
+          const connectionTags = normalizeTags(
+            p.connectionTags,
+            existingRecordTags,
+          );
+
+          if (
+            connectionTargetNodeId &&
+            (
+              connectionTags.length === 0 ||
+              typeof p.connectionReason !== 'string' ||
+              !p.connectionReason.trim() ||
+              typeof p.connectionRelationType !== 'string' ||
+              !p.connectionRelationType.trim() ||
+              p.connectionRelationType.trim().length > 40
+            )
+          ) {
+            throw new DecisionConflict(
+              '연결 태그·이유·관계 유형이 올바르지 않습니다.',
+            );
+          }
+
+          if (connectionTargetNodeId) {
+            const currentTarget = await tx.wikiNode.findUnique({
+              where: { id: connectionTargetNodeId },
+              select: {
+                id: true,
+                userId: true,
+                summary: true,
+                content: true,
+                topics: true,
+                tags: true,
+                categories: true,
+                latestVersion: true,
+              },
+            });
+
+            if (!currentTarget || currentTarget.userId !== userId) {
+              throw new DecisionConflict('연결 대상 노드가 변경되었거나 접근할 수 없습니다.');
+            }
+
+            const targetTagKeys = new Set(
+              normalizeTags(currentTarget.tags).map((t) => t.toLowerCase()),
+            );
+
+            const addedToBoth = connectionTags.filter(
+              (t) => !targetTagKeys.has(t.toLowerCase()),
+            );
+            const addedToNewOnly = connectionTags.filter((t) =>
+              targetTagKeys.has(t.toLowerCase()),
+            );
+
+            const finalNewTags = normalizeTags(
+              [...newNodeTags, ...addedToNewOnly, ...addedToBoth],
+              existingRecordTags,
+            );
+
+            const updatedNode = await tx.wikiNode.update({
+              where: { id: node.id, userId, latestVersion: 1 },
+              data: { tags: finalNewTags },
+            });
+
+            await tx.nodeVersion.update({
+              where: { id: nodeVersion.id },
+              data: { tags: finalNewTags },
+            });
+
+            const nextTargetTags =
+              addedToBoth.length > 0
+                ? [...currentTarget.tags, ...addedToBoth]
+                : currentTarget.tags;
+
+            if (addedToBoth.length > 0) {
+              const nextTargetVersion = currentTarget.latestVersion + 1;
+
+              const changed = await tx.wikiNode.updateMany({
+                where: {
+                  id: currentTarget.id,
+                  userId,
+                  latestVersion: currentTarget.latestVersion,
+                },
+                data: {
+                  tags: nextTargetTags,
+                  latestVersion: nextTargetVersion,
+                },
+              });
+
+              if (changed.count !== 1) {
+                throw new DecisionConflict(
+                  '기존에 선택한 노드가 다른 작업에서 변경됐습니다. 다시 시도해 주세요.',
+                );
+              }
+
+              await tx.nodeVersion.create({
+                data: {
+                  nodeId: currentTarget.id,
+                  version: nextTargetVersion,
+                  summary: currentTarget.summary,
+                  content: currentTarget.content,
+                  topics: currentTarget.topics,
+                  tags: nextTargetTags,
+                  categories: currentTarget.categories,
+                  changedBy: 'user',
+                  changeType: '연결 태그 추가',
+                  changeNote: `제안 ${proposal.id} 수락: ${addedToBoth.join(', ')}`,
+                },
+              });
+            }
+
+            const evidenceText = (proposal.evidence ?? [])
+              .map((item) => item.quote.trim())
+              .filter(Boolean)
+              .join('\n\n');
+
+            if (!evidenceText) {
+              throw new DecisionConflict(
+                '연결을 뒷받침할 원문 근거가 없습니다.',
+              );
+            }
+
+            const relationType =
+              typeof p.connectionRelationType === 'string' &&
+              p.connectionRelationType.trim()
+                ? p.connectionRelationType.trim().slice(0, 40)
+                : '연관';
+
+            const description =
+              typeof p.connectionReason === 'string'
+                ? p.connectionReason.trim()
+                : '';
+
+            const relationship = await tx.nodeRelationship.create({
+              data: {
+                userId,
+                sourceNodeId: node.id,
+                targetNodeId: currentTarget.id,
+                relationType,
+                description,
+                evidence: evidenceText,
+                tags: connectionTags,
+                proposedBy: proposal.id,
+                status: '연결됨',
+              },
+            });
+
+            return {
+              node: updatedNode,
+              relationship,
+              proposal: await tx.proposal.update({
+                where: { id: proposal.id },
+                data: {
+                  status: '반영됨',
+                  targetNodeId: node.id,
+                  decisionAction: '수락',
+                  decisionAt: new Date(),
+                },
+              }),
+            };
+          }
+
+          const updatedNode = await tx.wikiNode.update({
+            where: { id: node.id, userId, latestVersion: 1 },
+            data: { tags: newNodeTags },
+          });
+
+          await tx.nodeVersion.update({
+            where: { id: nodeVersion.id },
+            data: { tags: newNodeTags },
+          });
+
           const updatedProposal = await tx.proposal.update({
             where: { id: proposal.id },
             data: {
@@ -185,10 +446,19 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
             },
           });
 
-          return { node, proposal: updatedProposal };
+          return { node: updatedNode, proposal: updatedProposal };
+        }, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          timeout: 30000,
         });
 
-        return res.json({ proposal: result.proposal, node: result.node });
+        return res.json({
+          proposal: result.proposal,
+          node: result.node,
+          ...(result.relationship
+            ? { relationship: result.relationship }
+            : {}),
+        });
       }
       if (isLinkProposal) {
   const sourceNodeId = proposal.sourceNodeId;
@@ -227,10 +497,9 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
 
   const rawDescription = payload?.schemaReason;
   const description =
-    typeof rawDescription === 'string' && rawDescription.trim()
-      ? rawDescription.trim()
-      : proposal.action;
-
+  typeof rawDescription === 'string' && rawDescription.trim()
+    ? rawDescription.trim()
+    : proposal.action;
   const tags = normalizeTags(payload?.tags);
 
   if (tags.length === 0) {

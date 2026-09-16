@@ -15,7 +15,7 @@ export interface CandidateGenerationResult {
   excluded: Array<{ source: 'newNode' | 'proposal'; reason: string }>;
 }
 
-const VALID_PROPOSAL_TYPES = ['추가', '갱신', '연결'] as const;
+const VALID_PROPOSAL_TYPES = ['갱신'] as const;
 
 function validateNewNodeDraft(
   nodeDraft: {
@@ -216,6 +216,68 @@ export async function generateCandidatesForRecord(
         continue;
       }
 
+            const connectionTargetNodeId =
+        nodeDraft.connectionTargetNodeId?.trim() ?? '';
+
+      const connectionReason =
+        nodeDraft.connectionReason?.trim() ?? '';
+
+      const connectionRelationType =
+        nodeDraft.connectionRelationType?.trim() ?? '';
+
+      const connectionSchemaReason =
+        nodeDraft.connectionSchemaReason?.trim() || connectionReason;
+
+      const connectionTags = normalizeTags(
+        nodeDraft.connectionTags,
+        existingTags,
+      );
+
+      const connectionTarget = connectionTargetNodeId
+        ? existingNodesById.get(connectionTargetNodeId)
+        : undefined;
+
+      const hasConnection = Boolean(
+        connectionTarget &&
+        connectionTarget.userId === userId &&
+        connectionReason &&
+        connectionRelationType &&
+        connectionRelationType.length <= 40 &&
+        connectionTags.length > 0
+      );
+
+      if (connectionTargetNodeId && !hasConnection) {
+        excluded.push({
+          source: 'newNode',
+          reason:
+            '연결 대상·이유·관계 유형·태그가 유효하지 않아 연결을 제외하고 신규 노드만 제안함',
+        });
+      }
+
+      const connectionPayload = hasConnection
+        ? {
+            connectionTargetNodeId,
+            connectionReason,
+            connectionRelationType,
+            connectionSchemaReason,
+            connectionTags,
+          }
+        : {
+            connectionTargetNodeId: null,
+            connectionReason: null,
+            connectionRelationType: null,
+            connectionSchemaReason: null,
+            connectionTags: [],
+          };
+
+      const finalNodeTags = normalizeTags(
+        [
+          ...nodeDraft.tags,
+          ...(hasConnection ? connectionTags : []),
+        ],
+        existingTags,
+      );
+
       const newNodeProposal = await db.proposal.create({
         data: {
           userId,
@@ -224,26 +286,28 @@ export async function generateCandidatesForRecord(
           reason: nodeDraft.summary
             ? `Solar가 원문 기반으로 새 위키 노드 후보를 제안함. 요약: ${nodeDraft.summary}`
             : 'Solar가 원문 기반으로 새 위키 노드 후보를 제안함.',
-          proposalHash: `${record.id}:추가:${nodeDraft.title}:${nodeDraft.summary}`,
+          proposalHash:
+            `${record.id}:추가:${nodeDraft.title}:${nodeDraft.summary}`,
           evidenceSegmentIds: segments.map((s) => s.id),
           relatedSegmentIds: segments.map((s) => s.id),
           relatedRecordId: record.id,
           baseNodeVersion: null,
           skillHash,
-          hasSensitiveInfo: solarResult.sensitiveInfo.hasSensitiveInfo,
-          sensitiveInfoWarning: solarResult.sensitiveInfo.warning || undefined,
-          sensitiveInfoNodeIds: solarResult.sensitiveInfo.nodeIds || [],
+          hasSensitiveInfo:
+            solarResult.sensitiveInfo.hasSensitiveInfo,
+          sensitiveInfoWarning:
+            solarResult.sensitiveInfo.warning || undefined,
+          sensitiveInfoNodeIds:
+            solarResult.sensitiveInfo.nodeIds || [],
           status: '제안됨',
-          targetNodeId: undefined,
-          sourceNodeId: undefined,
-          // 신규 노드 초안 payload (스키마 반영 필드)
           draftPayload: {
             title: nodeDraft.title,
             summary: nodeDraft.summary,
             content: nodeDraft.content,
             topics: nodeDraft.topics,
-            tags: nodeDraft.tags,
+            tags: finalNodeTags,
             categories: nodeDraft.categories,
+            ...connectionPayload,
           },
         },
       });

@@ -44,6 +44,13 @@ export interface Proposal {
   decisionAt?: string;
   decisionAction?: string;
   reflected?: boolean;
+  /** 신규 노드 제안에서 선택적으로 붙는, 연결할 기존 노드 정보 */
+  connectionTargetNodeId?: string;
+  connectionTargetNode?: ProposalNodeSummary | null;
+  connectionReason?: string;
+  connectionRelationType?: string;
+  connectionSchemaReason?: string;
+  connectionTags?: string[];
 }
 
 export interface NodesResponse {
