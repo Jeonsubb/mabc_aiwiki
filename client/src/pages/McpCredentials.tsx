@@ -23,6 +23,9 @@ export default function McpCredentials() {
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null);
+
   const mcpUrl = import.meta.env.VITE_MCP_URL || '';
   const mcpUrlConfigured = Boolean(mcpUrl);
 
@@ -106,6 +109,19 @@ export default function McpCredentials() {
       );
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    setDeleteErrorId(null);
+    try {
+      await api.deleteCredential(id);
+      setCredentials((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      setDeleteErrorId(id);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -266,6 +282,44 @@ export default function McpCredentials() {
                         </button>
                       )}
                     </div>
+                    {revoked && (
+                      <div className="flex gap-xs">
+                        {deletingId === c.id ? (
+                          <div className="delete-confirm">
+                            <p className="delete-confirm-text">
+                              이 토큰은 목록에서 완전히 삭제됩니다. 다시 복구할 수 없습니다.
+                            </p>
+                            <div className="delete-confirm-actions">
+                              <button
+                                className="btn btn-danger"
+                                onClick={() => handleDelete(c.id)}
+                                disabled={deletingId === c.id}
+                              >
+                                {deletingId === c.id ? '삭제 중' : '삭제'}
+                              </button>
+                              <button
+                                className="btn btn-ghost"
+                                onClick={() => setDeletingId(null)}
+                              >
+                                취소
+                              </button>
+                            </div>
+                            {deleteErrorId === c.id && (
+                              <p className="record-error" style={{ marginTop: 'var(--sp-sm)' }}>
+                                삭제 실패
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            className="btn btn-ghost-sm"
+                            onClick={() => setDeletingId(c.id)}
+                          >
+                            목록에서 삭제
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {revokeError ? (
                     <p className="record-error" style={{ marginTop: 'var(--sp-sm)' }}>

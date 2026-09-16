@@ -107,3 +107,37 @@ mcpCredentialsRouter.delete('/:id', requireAuth, async (req: Request, res: Respo
     res.status(500).json({ error: '서버 오류' });
   }
 });
+
+// --------------------------------------------------
+// 폐기된 MCP 연결 토큰 영구 삭제
+// --------------------------------------------------
+mcpCredentialsRouter.delete('/:id/permanent', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const credentialId = req.params.id;
+
+    if (!credentialId) {
+      return res.status(400).json({ error: 'credential id가 필요' });
+    }
+
+    const credential = await db.mcpCredential.findFirst({
+      where: { id: credentialId, userId },
+      select: { id: true, userId: true, revokedAt: true },
+    });
+
+    if (!credential) {
+      return res.status(404).json({ error: '토큰을 찾을 수 없음' });
+    }
+
+    if (credential.revokedAt == null) {
+      return res.status(409).json({ error: '활성 토큰은 삭제할 수 없습니다. 먼저 폐기하세요.' });
+    }
+
+    await db.mcpCredential.delete({ where: { id: credentialId } });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('mcp credential permanent delete error:', err);
+    res.status(500).json({ error: '서버 오류' });
+  }
+});

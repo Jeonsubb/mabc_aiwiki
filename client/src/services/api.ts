@@ -16,6 +16,7 @@ import type {
   McpCredentialsListResponse,
   McpCredentialCreateResponse,
   McpCredentialRevokeResponse,
+  McpCredentialDeleteResponse,
   DeleteProposalResponse,
 } from '@shared/api';
 
@@ -107,6 +108,8 @@ export const api = {
     post<McpCredentialCreateResponse>('/credentials', { name }),
   revokeCredential: (id: string) =>
     del<McpCredentialRevokeResponse>(`/credentials/${id}`),
+  deleteCredential: (id: string) =>
+    del<McpCredentialDeleteResponse>(`/credentials/${id}/permanent`),
   searchWikiNodes: (q: string) => get<WikiSearchResponse>(`/search/wiki-nodes?q=${encodeURIComponent(q)}&limit=20`),
   searchChatMessages: (q: string) => get<ChatSearchResponse>(`/search/chat-messages?q=${encodeURIComponent(q)}&limit=20`),
   deleteProposal: (id: string) => del<DeleteProposalResponse>(`/proposals/${id}`),

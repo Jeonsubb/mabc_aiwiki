@@ -141,6 +141,10 @@ export interface McpCredentialRevokeResponse {
   revokedAt: string;
 }
 
+export interface McpCredentialDeleteResponse {
+  ok: boolean;
+}
+
 export interface DeleteProposalResponse {
   ok: boolean;
 }
