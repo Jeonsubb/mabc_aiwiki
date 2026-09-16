@@ -45,17 +45,31 @@ proposalsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => 
     const proposal = await db.proposal.findFirst({
       where: { id: req.params.id, userId },
       include: {
-        evidence: {
-          orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            segmentId: true,
-            quote: true,
-            originalStart: true,
-            originalEnd: true,
-          },
-        },
-      },
+  evidence: {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      segmentId: true,
+      quote: true,
+      originalStart: true,
+      originalEnd: true,
+    },
+  },
+  sourceNode: {
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+    },
+  },
+  targetNode: {
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+    },
+  },
+},
     });
     if (!proposal) {
       return res.status(404).json({ error: '제안을 찾지 못함' });
@@ -200,6 +214,18 @@ if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkPro
     return res.status(400).json({ error: '연결 근거가 없습니다' });
   }
 
+  const rawRelationType = payload?.relationType;
+  const relationType =
+    typeof rawRelationType === 'string' && rawRelationType.trim()
+      ? rawRelationType.trim().slice(0, 40)
+      : '연관';
+
+  const rawDescription = payload?.schemaReason;
+  const description =
+    typeof rawDescription === 'string' && rawDescription.trim()
+      ? rawDescription.trim()
+      : proposal.action;
+
   const result = await db.$transaction(async (tx) => {
     await claimProposal(tx, proposal.id, userId);
     const relationship = await tx.nodeRelationship.upsert({
@@ -207,15 +233,15 @@ if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkPro
         sourceNodeId_targetNodeId_relationType: {
           sourceNodeId,
           targetNodeId,
-          relationType: '연관',
+          relationType,
         },
       },
       create: {
         userId,
         sourceNodeId,
         targetNodeId,
-        relationType: '연관',
-        description: proposal.action,
+        relationType,
+        description,
         evidence,
         proposedBy: proposal.id,
         status: '연결됨',

@@ -20,12 +20,19 @@ export interface ProposalEvidence {
   originalStart: number;
   originalEnd: number;
 }
+export interface ProposalNodeSummary {
+  id: string;
+  title: string;
+  summary: string;
+}
 
 export interface Proposal {
   id: string;
   type: '추가' | '갱신' | '분리' | '병합' | '연결' | '보강' | '수정';
   targetNodeId?: string;
   sourceNodeId?: string;
+  sourceNode?: ProposalNodeSummary | null;
+  targetNode?: ProposalNodeSummary | null;
   action: string;
   reason: string;
   evidence?: ProposalEvidence[] | null;

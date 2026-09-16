@@ -58,6 +58,11 @@ export interface ProposalDraft {
   after?: { summary: string; content: string; topics?: string[]; tags?: string[]; categories?: string[] };
   relatedSegmentIds: string[];
   relatedRecordId?: string;
+  // 연결 제안 시 위키 노드의 개념 유형과 관계 유형 (AutoSchema 스타일 판단)
+  sourceConceptType?: string;
+  targetConceptType?: string;
+  relationType?: string;
+  schemaReason?: string;
 }
 
 function loadSkillPrompt(): string {
@@ -153,6 +158,11 @@ ${skillPrompt}
 - sourceNodeId와 targetNodeId가 같으면 안 된다.
 - 단순히 일반 단어, 카테고리 또는 태그 하나가 같다는 이유만으로 연결하지 않는다.
 - 두 노드 사이에 동일한 대상, 사건, 계획, 결정, 원인·결과, 활용 또는 보강 관계가 있어야 한다.
+- 연결 제안 시 sourceConceptType, targetConceptType, relationType, schemaReason을 함께 반환한다.
+  - sourceConceptType/targetConceptType은 각 위키 노드의 역할/성격을 짧게 표현한다(예: 정책 정보, 콘텐츠 제작 계획, 프로젝트 기록, 참고 자료, 일정, 아이디어, 회고).
+  - relationType은 두 노드 사이의 구체적인 관계 유형 한 단어로 표현한다(예: 활용, 참고, 선행, 후속, 원인, 결과, 구성, 포함, 대립, 보완, 유사).
+  - schemaReason은 sourceConceptType/targetConceptType/relationType을 선택한 근거 한 문장으로 작성한다.
+  - 노드 역할이 애매하면 sourceConceptType/targetConceptType을 무리해서 채우지 말고 비워 둔다.
 - action에는 어떤 두 위키를 어떻게 연결할지 짧게 작성한다.
 - reason에는 두 노드의 관계와 사용자에게 유용한 이유를 구체적으로 작성한다.
 - evidence에는 현재 새 대화에서 관계를 뒷받침하는 실제 내용을 작성한다.
@@ -166,6 +176,10 @@ ${skillPrompt}
   "type": "연결",
   "sourceNodeId": "기존-위키-ID-1",
   "targetNodeId": "기존-위키-ID-2",
+  "sourceConceptType": "정책 정보",
+  "targetConceptType": "콘텐츠 제작 계획",
+  "relationType": "활용",
+  "schemaReason": "정책 정보가 콘텐츠 제작의 자료로 사용됨",
   "action": "부산 여행 계획과 여행 콘텐츠 제작 계획 연결",
   "reason": "부산 여행 일정이 콘텐츠 촬영 소재와 제작 일정으로 활용될 수 있음",
   "evidence": "사용자가 부산 여행 중 방문 장소를 촬영해 콘텐츠로 만들겠다고 언급함",
@@ -204,7 +218,7 @@ ${existingNodesText}
 ## 출력
 {
   "newNodes": [{"title":"...","summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]}],
-  "proposals": [{"type":"...","targetNodeId":"...","sourceNodeId":"...","action":"...","reason":"...","evidence":"...","evidenceSegments":["..."],"before":{"summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]},"after":{...},"relatedSegmentIds":["..."],"relatedRecordId":"..."}],
+  "proposals": [{"type":"...","targetNodeId":"...","sourceNodeId":"...","action":"...","reason":"...","evidence":"...","evidenceSegments":["..."],"before":{"summary":"...","content":"...","topics":["..."],"tags":["..."],"categories":["..."]},"after":{...},"relatedSegmentIds":["..."],"relatedRecordId":"...","sourceConceptType":"...","targetConceptType":"...","relationType":"...","schemaReason":"..."}],
   "interestCandidates": [{"interest":"...","snippet":"..."}],
   "sensitiveInfo": {"hasSensitiveInfo":false,"warning":"...","nodeIds":["..."],"types":["..."]}
 }`;
@@ -370,6 +384,10 @@ function parseProposal(p: unknown): ProposalDraft {
     after,
     relatedSegmentIds: arrayOfString(o.relatedSegmentIds),
     relatedRecordId: o.relatedRecordId ? String(o.relatedRecordId) : undefined,
+    sourceConceptType: o.sourceConceptType ? String(o.sourceConceptType) : undefined,
+    targetConceptType: o.targetConceptType ? String(o.targetConceptType) : undefined,
+    relationType: o.relationType ? String(o.relationType) : undefined,
+    schemaReason: o.schemaReason ? String(o.schemaReason) : undefined,
   };
 }
 

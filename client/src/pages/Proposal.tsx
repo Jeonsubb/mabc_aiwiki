@@ -30,6 +30,112 @@ function saveDecision(rec: DecisionRecord): void {
     localStorage.setItem(DECISION_KEY, JSON.stringify([...filtered, rec]));
   } catch {}
 }
+function ConnectionProposalPreview({ proposal }: { proposal: Proposal }) {
+  const payload =
+    proposal.changePayload &&
+    typeof proposal.changePayload === 'object'
+      ? (proposal.changePayload as Record<string, unknown>)
+      : {};
+
+  const relationType =
+    typeof payload.relationType === 'string' && payload.relationType.trim()
+      ? payload.relationType
+      : '연관';
+
+  const sourceConceptType =
+    typeof payload.sourceConceptType === 'string' && payload.sourceConceptType.trim()
+      ? payload.sourceConceptType.trim()
+      : undefined;
+
+  const targetConceptType =
+    typeof payload.targetConceptType === 'string' && payload.targetConceptType.trim()
+      ? payload.targetConceptType.trim()
+      : undefined;
+
+  const schemaReason =
+    typeof payload.schemaReason === 'string' && payload.schemaReason.trim()
+      ? payload.schemaReason.trim()
+      : undefined;
+
+  const sourceTitle =
+    proposal.sourceNode?.title ??
+    proposal.sourceNodeId ??
+    '출발 위키를 찾을 수 없음';
+
+  const targetTitle =
+    proposal.targetNode?.title ??
+    proposal.targetNodeId ??
+    '도착 위키를 찾을 수 없음';
+
+  return (
+    <div className="connection-preview">
+      <div className="connection-node-card">
+        <span className="connection-node-label">출발 위키</span>
+
+        {proposal.sourceNode ? (
+          <Link
+            to={`/node/${proposal.sourceNode.id}`}
+            className="connection-node-title"
+          >
+            {sourceTitle}
+          </Link>
+        ) : (
+          <strong className="connection-node-title">{sourceTitle}</strong>
+        )}
+
+        {proposal.sourceNode?.summary && (
+          <p className="connection-node-summary">
+            {proposal.sourceNode.summary}
+          </p>
+        )}
+
+        {sourceConceptType && (
+          <p className="connection-concept-type">{sourceConceptType}</p>
+        )}
+      </div>
+
+      <div className="connection-relation">
+        <span className="badge badge-green">{relationType}</span>
+        <span className="connection-arrow" aria-hidden="true">
+          →
+        </span>
+        <p className="connection-action">{proposal.action}</p>
+
+        {schemaReason && (
+          <p className="connection-schema-reason">
+            <span className="connection-schema-label">스키마 판단</span>
+            {' '}{schemaReason}
+          </p>
+        )}
+      </div>
+
+      <div className="connection-node-card">
+        <span className="connection-node-label">도착 위키</span>
+
+        {proposal.targetNode ? (
+          <Link
+            to={`/node/${proposal.targetNode.id}`}
+            className="connection-node-title"
+          >
+            {targetTitle}
+          </Link>
+        ) : (
+          <strong className="connection-node-title">{targetTitle}</strong>
+        )}
+
+        {proposal.targetNode?.summary && (
+          <p className="connection-node-summary">
+            {proposal.targetNode.summary}
+          </p>
+        )}
+
+        {targetConceptType && (
+          <p className="connection-concept-type">{targetConceptType}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function renderCompare(proposal: Proposal) {
   if (proposal.type === '추가') {
@@ -46,7 +152,9 @@ function renderCompare(proposal: Proposal) {
       </div>
     );
   }
-
+  if (proposal.type === '연결') {
+    return <ConnectionProposalPreview proposal={proposal} />;
+  }
   return (
     <div className="compare">
       <div className="compare-col">
@@ -125,7 +233,18 @@ export default function ProposalPage() {
       const res = await api.decideProposal(id, { action });
       saveDecision({ proposalId: id, action, at: new Date().toISOString() });
       setSaved(true);
-      setProposal(res.proposal);
+      setProposal((previous) => {
+  if (!previous) {
+    return res.proposal;
+  }
+
+  return {
+    ...previous,
+    ...res.proposal,
+    sourceNode: res.proposal.sourceNode ?? previous.sourceNode,
+    targetNode: res.proposal.targetNode ?? previous.targetNode,
+  };
+});
     } catch (err) {
       setError(err instanceof Error ? err.message : '결정 반영에 실패했어요.');
     }
@@ -152,7 +271,11 @@ export default function ProposalPage() {
       </div>
 
       <div className="decide-section">
-        <h3>무엇이 바뀌는지 미리 보기</h3>
+        <h3>
+  {proposal.type === '연결'
+    ? '어떤 위키를 연결하는지 확인'
+    : '무엇이 바뀌는지 미리 보기'}
+</h3>
         {renderCompare(proposal)}
       </div>
 

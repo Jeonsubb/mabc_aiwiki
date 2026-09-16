@@ -389,6 +389,10 @@ const changePayload = JSON.parse(JSON.stringify({
   relatedRecordId: propDraft.relatedRecordId,
   before: beforePayload,
   after: afterPayload,
+  sourceConceptType: propDraft.sourceConceptType,
+  targetConceptType: propDraft.targetConceptType,
+  relationType: propDraft.relationType,
+  schemaReason: propDraft.schemaReason,
 })) as Prisma.InputJsonValue;
 
       const proposal = await db.proposal.create({

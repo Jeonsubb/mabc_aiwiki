@@ -1576,6 +1576,103 @@ button:focus-visible {
   word-break: break-word;
 }
 
+.connection-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px minmax(0, 1fr);
+  gap: var(--sp-lg);
+  align-items: stretch;
+}
+
+.connection-node-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sp-lg);
+  background: var(--surface-panel);
+  border: var(--border-hairline);
+  border-radius: var(--r-md);
+}
+
+.connection-node-label {
+  margin-bottom: var(--sp-sm);
+  color: var(--color-mute);
+  font-size: var(--type-label-sm);
+}
+
+.connection-node-title {
+  color: var(--color-ink);
+  font-size: var(--type-heading-md);
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-word;
+}
+
+a.connection-node-title:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.connection-node-summary {
+  margin: var(--sp-sm) 0 0;
+  color: var(--color-body);
+  font-size: var(--type-body-sm);
+  line-height: 1.5;
+}
+
+.connection-concept-type {
+  margin: var(--sp-xs) 0 0;
+  color: var(--color-mute);
+  font-size: var(--type-label-sm);
+}
+
+.connection-relation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  text-align: center;
+  gap: var(--sp-xs);
+}
+
+.connection-schema-reason {
+  margin: var(--sp-sm) 0 0;
+  color: var(--color-body);
+  font-size: var(--type-body-xs);
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.connection-schema-label {
+  color: var(--color-mute);
+  font-weight: 500;
+}
+
+.connection-arrow {
+  margin: var(--sp-sm) 0;
+  color: var(--color-accent);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.connection-action {
+  margin: 0;
+  color: var(--color-body);
+  font-size: var(--type-body-sm);
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+@media (max-width: 760px) {
+  .connection-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-arrow {
+    transform: rotate(90deg);
+  }
+}
+
 .rationale-card {
   margin-bottom: var(--sp-xl);
 }
