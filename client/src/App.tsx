@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Routes, Route, Link, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import MindMapPage from "./pages/MindMapPage";
@@ -20,7 +19,6 @@ export default function App({
   user: { id: string; email: string; name?: string } | null;
   onLogout?: () => void | Promise<void>;
 }) {
-  const navigate = useNavigate();
   const currentPage = currentPageForPath();
  
   return (
