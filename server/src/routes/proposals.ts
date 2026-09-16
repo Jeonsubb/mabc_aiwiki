@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { Prisma } from '@prisma/client';
+import { normalizeTags } from '../solar';
 
 export const proposalsRouter = Router();
 
@@ -91,6 +92,10 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
 
     const proposal = await db.proposal.findFirst({
       where: { id: req.params.id, userId },
+      include: {
+        sourceNode: { select: { id: true, userId: true, tags: true } },
+        targetNode: { select: { id: true, userId: true, tags: true } },
+      },
     });
     if (!proposal) {
       return res.status(404).json({ error: '제안을 찾지 못함' });
@@ -103,13 +108,13 @@ proposalsRouter.post('/:id/decide', requireAuth, async (req: Request, res: Respo
 
     // '수락'은 추가 유형만 대상 노드 생성을, 대상 노드 유형은 노드 갱신으로 처리한다.
     const isNewNodeProposal = proposal.type === '추가';
-const isUpdateProposal = proposal.type === '갱신';
-const isLinkProposal = proposal.type === '연결';
-const changePayload = proposal.changePayload;
+    const isUpdateProposal = proposal.type === '갱신';
+    const isLinkProposal = proposal.type === '연결';
+    const changePayload = proposal.changePayload;
 
-if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkProposal) {
-  return res.status(400).json({ error: '수락할 수 없는 제안 유형입니다' });
-}
+    if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkProposal) {
+      return res.status(400).json({ error: '수락할 수 없는 제안 유형입니다' });
+    }
 
     if (action === '수락') {
       if (isNewNodeProposal) {
@@ -195,7 +200,7 @@ if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkPro
 
   const nodes = await db.wikiNode.findMany({
     where: { id: { in: [sourceNodeId, targetNodeId] } },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, tags: true },
   });
 
   if (nodes.length !== 2) {
@@ -226,27 +231,126 @@ if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkPro
       ? rawDescription.trim()
       : proposal.action;
 
-  const result = await db.$transaction(async (tx) => {
+  const tags = normalizeTags(payload?.tags);
+
+  if (tags.length === 0) {
+    return res.status(400).json({
+      error: '연결 태그가 없습니다. 기존 제안을 기각한 뒤 연결 제안을 다시 생성해 주세요.',
+    });
+  }
+
+    const result = await db.$transaction(async (tx) => {
     await claimProposal(tx, proposal.id, userId);
-    const relationship = await tx.nodeRelationship.upsert({
+
+    // 수락 시점의 최신 노드와 태그를 읽는다.
+    const currentNodes = await tx.wikiNode.findMany({
       where: {
-        sourceNodeId_targetNodeId_relationType: {
-          sourceNodeId,
-          targetNodeId,
-          relationType,
-        },
+        id: { in: [sourceNodeId, targetNodeId] },
+        userId,
       },
-      create: {
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        summary: true,
+        content: true,
+        topics: true,
+        tags: true,
+        categories: true,
+        latestVersion: true,
+      },
+    });
+
+    if (currentNodes.length !== 2) {
+      throw new DecisionConflict(
+        '연결할 노드가 변경되었거나 접근할 수 없습니다.',
+      );
+    }
+
+    // 기존 후보 생성 단계와 동일하게 양방향 중복을 검사한다.
+    const existingRelationship = await tx.nodeRelationship.findFirst({
+      where: {
+        userId,
+        OR: [
+          { sourceNodeId, targetNodeId },
+          {
+            sourceNodeId: targetNodeId,
+            targetNodeId: sourceNodeId,
+          },
+        ],
+      },
+    });
+
+    if (existingRelationship) {
+      throw new DecisionConflict(
+        '이미 연결된 노드입니다. 제안 목록을 새로고침해 주세요.',
+      );
+    }
+
+    const connectionTags = normalizeTags(
+      tags,
+      currentNodes.flatMap((node) => node.tags),
+    );
+
+    for (const node of currentNodes) {
+      const existingKeys = new Set(
+        normalizeTags(node.tags).map((tag) => tag.toLowerCase()),
+      );
+
+      const addedTags = connectionTags.filter(
+        (tag) => !existingKeys.has(tag.toLowerCase()),
+      );
+
+      // 이미 가진 태그는 추가하거나 버전을 올리지 않는다.
+      if (addedTags.length === 0) continue;
+
+      const nextTags = [...node.tags, ...addedTags];
+      const nextVersion = node.latestVersion + 1;
+
+      const changed = await tx.wikiNode.updateMany({
+        where: {
+          id: node.id,
+          userId,
+          latestVersion: node.latestVersion,
+        },
+        data: {
+          tags: nextTags,
+          latestVersion: nextVersion,
+        },
+      });
+
+      if (changed.count !== 1) {
+        throw new DecisionConflict(
+          '노드가 다른 작업에서 변경됐습니다. 다시 시도해 주세요.',
+        );
+      }
+
+      await tx.nodeVersion.create({
+        data: {
+          nodeId: node.id,
+          version: nextVersion,
+          summary: node.summary,
+          content: node.content,
+          topics: node.topics,
+          tags: nextTags,
+          categories: node.categories,
+          changedBy: 'user',
+          changeType: '연결 태그 추가',
+          changeNote:
+            `연결 제안 ${proposal.id} 수락: ${addedTags.join(', ')}`,
+        },
+      });
+    }
+
+    const relationship = await tx.nodeRelationship.create({
+      data: {
         userId,
         sourceNodeId,
         targetNodeId,
         relationType,
         description,
         evidence,
+        tags: connectionTags,
         proposedBy: proposal.id,
-        status: '연결됨',
-      },
-      update: {
         status: '연결됨',
       },
     });
@@ -260,9 +364,13 @@ if (action === '수락' && !isNewNodeProposal && !isUpdateProposal && !isLinkPro
       },
     });
 
-    return { relationship, proposal: updatedProposal };
+    return {
+      relationship,
+      proposal: updatedProposal,
+    };
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
-
   return res.json(result);
 }
 
@@ -421,6 +529,14 @@ const updatedNode = await tx.wikiNode.findUniqueOrThrow({
     if (err instanceof DecisionConflict) {
     return res.status(409).json({ error: err.message });
   }
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2034'
+    ) {
+      return res.status(409).json({
+        error: '다른 저장 작업과 겹쳤습니다. 잠시 후 다시 수락해 주세요.',
+      });
+    }
     console.error('proposals decide error:', err);
     res.status(500).json({ error: '서버 오류' });
   }

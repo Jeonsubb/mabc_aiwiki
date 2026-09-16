@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GraphNode, GraphEdge } from '@shared/api';
+
 function mulberryHash(seed: number) {
   let s = seed | 0;
   return () => {
@@ -95,17 +96,16 @@ const FALLBACK_EDGES = [
   ['g2-3', 'g3-2'],
 ] as const;
 
-
 type TagDef = {
   id: string;
   label: string;
-  nodeIds: string[];
+  edgeIndices: number[];
 };
 
 const FALLBACK_TAG_DEFS: TagDef[] = [
-  { id: 'tag-a', label: '태그 A', nodeIds: ['g1-1', 'g1-2', 'g1-3', 'g1-4'] },
-  { id: 'tag-b', label: '태그 B', nodeIds: ['g2-1', 'g2-2', 'g2-3', 'g2-4'] },
-  { id: 'tag-c', label: '태그 C', nodeIds: ['g3-1', 'g3-2', 'g3-3', 'g3-4'] },
+  { id: 'tag-a', label: '태그 A', edgeIndices: [0, 1, 2] },
+  { id: 'tag-b', label: '태그 B', edgeIndices: [3, 4, 5] },
+  { id: 'tag-c', label: '태그 C', edgeIndices: [6, 7, 8] },
 ];
 
 const DEMO_SESSION = {
@@ -175,29 +175,54 @@ export default function OrbitOnly({
     [graphNodes, graphEdges],
   );
 
+  const SAMPLE_EDGE_TAGS = useMemo<ReadonlyArray<string[]>>(
+    () => {
+      if (graphNodes.length === 0) {
+        return [];
+      }
+
+      const validNodeIds = new Set(graphNodes.map((node) => node.id));
+
+      return graphEdges
+        .filter(
+          (edge) =>
+            validNodeIds.has(edge.source) &&
+            validNodeIds.has(edge.target),
+        )
+        .map((edge) => Array.isArray(edge.tags) ? edge.tags : []);
+    },
+    [graphNodes, graphEdges],
+  );
+
   const TAG_DEFS = useMemo<TagDef[]>(() => {
-    if (graphNodes.length === 0) {
+    if (SAMPLE_EDGE_TAGS.length === 0) {
       return [];
     }
 
-    const tagNodeIds = new Map<string, string[]>();
+    const tagEdgeIndices = new Map<string, number[]>();
 
-    for (const node of graphNodes) {
-      for (const tag of node.tags) {
-        const nodeIds = tagNodeIds.get(tag) ?? [];
-        nodeIds.push(node.id);
-        tagNodeIds.set(tag, nodeIds);
+    for (let i = 0; i < SAMPLE_EDGE_TAGS.length; i++) {
+      const tags = SAMPLE_EDGE_TAGS[i];
+      for (const tag of tags) {
+        const indices = tagEdgeIndices.get(tag) ?? [];
+        indices.push(i);
+        tagEdgeIndices.set(tag, indices);
       }
     }
 
-    return Array.from(tagNodeIds.entries())
-        .filter(([, nodeIds]) => new Set(nodeIds).size >= 2)
-        .map(([tag, nodeIds]) => ({
+    return Array.from(tagEdgeIndices.entries())
+      .map(([tag, edgeIndices]) => ({
         id: `tag-${tag}`,
         label: tag,
-        nodeIds,
+        edgeIndices,
       }));
-  }, [graphNodes]);
+  }, [SAMPLE_EDGE_TAGS]);
+
+  const ALL_BASE_SCALE = 0.9;
+  const SELECTED_SCALE = 1.15;
+  const CONNECTED_SCALE = 1.0;
+  const DEFAULT_SCALE = 0.9;
+  const NONSELECTED_SCALE = 0.65;
 
   const mountRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -298,7 +323,7 @@ export default function OrbitOnly({
       const sprite = new THREE.Sprite(material);
       const position = node.position;
       sprite.position.set(position[0], position[1], position[2] + 0.002);
-      const baseScale = 0.55;
+      const baseScale = ALL_BASE_SCALE;
       sprite.scale.set(baseScale, baseScale, 1);
       sprite.userData = {
         nodeId: node.id,
@@ -324,9 +349,17 @@ export default function OrbitOnly({
 
     const nodeIdToTagIds: Record<string, string[]> = {};
     for (const tag of TAG_DEFS) {
-      for (const nid of tag.nodeIds) {
-        if (!nodeIdToTagIds[nid]) nodeIdToTagIds[nid] = [];
-        nodeIdToTagIds[nid].push(tag.id);
+      for (const edgeIndex of tag.edgeIndices) {
+        const [sourceId, targetId] = SAMPLE_EDGES[edgeIndex];
+        if (!sourceId || !targetId) continue;
+        if (!nodeIdToTagIds[sourceId]) nodeIdToTagIds[sourceId] = [];
+        if (!nodeIdToTagIds[sourceId].includes(tag.id)) {
+          nodeIdToTagIds[sourceId].push(tag.id);
+        }
+        if (!nodeIdToTagIds[targetId]) nodeIdToTagIds[targetId] = [];
+        if (!nodeIdToTagIds[targetId].includes(tag.id)) {
+          nodeIdToTagIds[targetId].push(tag.id);
+        }
       }
     }
 
@@ -393,7 +426,7 @@ export default function OrbitOnly({
     const selectedHitOnDown = { current: null as SessionNode | null };
     const hoverId = { current: null as string | null };
 
-    const nodeRadiusForHit = 0.22;
+    const nodeRadiusForHit = 0.35;
 
     const eventToWorld = (e: MouseEvent): { x: number; y: number } | null => {
       const rect = mountRef.current?.getBoundingClientRect();
@@ -432,63 +465,75 @@ export default function OrbitOnly({
           if (targetId === selected) connectedIds.add(sourceId);
         }
       }
+      const tagNodeIds = new Set<string>();
+      if (activeTag != null) {
+        const tagLabel = activeTag.startsWith('tag-') ? activeTag.slice(4) : activeTag;
+        for (const tag of TAG_DEFS) {
+          if (tag.label !== tagLabel) continue;
+          for (const edgeIndex of tag.edgeIndices) {
+            const [sourceId, targetId] = SAMPLE_EDGES[edgeIndex];
+            if (sourceId) tagNodeIds.add(sourceId);
+            if (targetId) tagNodeIds.add(targetId);
+          }
+        }
+      }
       for (const sprite of nodeSprites) {
         const ud = sprite.userData;
         if (!ud) continue;
         const nodeId = ud.nodeId;
         const isSelected = nodeId === selected;
         const isConnected = selected != null && connectedIds.has(nodeId);
-        const inTag = activeTag != null && nodeIdToTagIds[nodeId]?.includes(activeTag);
+        const inTag = activeTag != null && tagNodeIds.has(nodeId);
         if (isSelected) {
           ud.targetColor = nodeHighlightColor;
-          ud.baseScale = 0.36;
+          ud.baseScale = SELECTED_SCALE;
           ud.tierOpacity = 1;
           ud.pulseAmplitude = 0;
           ud.pulseScaleAmplitude = 0;
-          ud.targetScale = 0.36;
+          ud.targetScale = SELECTED_SCALE;
           ud.targetOpacity = 1;
         } else if (inTag) {
           ud.targetColor = nodeHighlightColor;
-          ud.baseScale = 0.36;
+          ud.baseScale = SELECTED_SCALE;
           ud.tierOpacity = 1;
           ud.pulseAmplitude = 0;
           ud.pulseScaleAmplitude = 0;
-          ud.targetScale = 0.36;
+          ud.targetScale = SELECTED_SCALE;
           ud.targetOpacity = 1;
         } else if (isConnected) {
           ud.targetColor = nodeHighlightColor;
-          ud.baseScale = 0.26;
+          ud.baseScale = CONNECTED_SCALE;
           ud.tierOpacity = 0.6;
           ud.pulseAmplitude = 0.1;
           ud.pulseScaleAmplitude = 0.04;
-          ud.targetScale = 0.26;
+          ud.targetScale = CONNECTED_SCALE;
           ud.targetOpacity = 0.6;
         } else {
           ud.targetColor = nodeBaseColor;
           if (selected == null) {
-            ud.baseScale = 0.22;
+            ud.baseScale = DEFAULT_SCALE;
             ud.tierOpacity = 0.85;
             ud.pulseAmplitude = 0.18;
             ud.pulseScaleAmplitude = 0.06;
-            ud.targetScale = 0.22;
+            ud.targetScale = DEFAULT_SCALE;
             ud.targetOpacity = 0.85;
           } else {
-            ud.baseScale = 0.14;
+            ud.baseScale = NONSELECTED_SCALE;
             ud.tierOpacity = 0.3;
             ud.pulseAmplitude = 0.08;
             ud.pulseScaleAmplitude = 0.03;
-            ud.targetScale = 0.14;
+            ud.targetScale = NONSELECTED_SCALE;
             ud.targetOpacity = 0.3;
           }
         }
       }
       const tagEdges = new Set<number>();
       if (activeTag != null) {
-        for (let i = 0; i < SAMPLE_EDGES.length; i++) {
-          const [sourceId, targetId] = SAMPLE_EDGES[i];
-          const sIn = nodeIdToTagIds[sourceId]?.includes(activeTag);
-          const tIn = nodeIdToTagIds[targetId]?.includes(activeTag);
-          if (sIn && tIn) tagEdges.add(i);
+        const tagLabel = activeTag.startsWith('tag-') ? activeTag.slice(4) : activeTag;
+        for (let i = 0; i < SAMPLE_EDGE_TAGS.length; i++) {
+          if (SAMPLE_EDGE_TAGS[i].includes(tagLabel)) {
+            tagEdges.add(i);
+          }
         }
       }
       for (let i = 0; i < SAMPLE_EDGES.length; i++) {
@@ -794,9 +839,9 @@ export default function OrbitOnly({
     }, [SAMPLE_SESSION_NODES, SAMPLE_EDGES, TAG_DEFS]);
 
   useEffect(() => {
-  selectedIdRef.current = selectedId;
-  updateHighlightForSelectedRef.current?.(selectedId);
-}, [selectedId]);
+    selectedIdRef.current = selectedId;
+    updateHighlightForSelectedRef.current?.(selectedId);
+  }, [selectedId]);
 
   useEffect(() => {
     activeTagIdRef.current = activeTagId;

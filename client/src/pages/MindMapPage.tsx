@@ -63,6 +63,7 @@ export default function MindMapPage() {
   const selectedDetail =
     detail?.node.id === selectedNodeId ? detail : null;
 
+
   return (
     <div className="page-body" style={{ flexDirection: "row", overflow: "hidden" }}>
       <section className="graph-area" aria-label="생각 지도 탐색 영역">

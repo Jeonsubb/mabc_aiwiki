@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { requireAuth } from '../middleware/auth';
+import { normalizeTags } from '../solar';
 
 export const graphRouter = Router();
 
@@ -43,6 +44,7 @@ graphRouter.get('/', requireAuth, async (req: Request, res: Response) => {
           relationType: true,
           description: true,
           evidence: true,
+          tags: true,
           createdAt: true,
         },
       }),
@@ -76,6 +78,7 @@ graphRouter.get('/', requireAuth, async (req: Request, res: Response) => {
         relationType: relationship.relationType,
         description: relationship.description,
         evidence: relationship.evidence,
+        tags: normalizeTags(relationship.tags),
         status: 'confirmed',
         createdAt: relationship.createdAt,
       })),
@@ -91,6 +94,13 @@ graphRouter.get('/', requireAuth, async (req: Request, res: Response) => {
           'evidence' in proposal.changePayload
             ? String(proposal.changePayload.evidence ?? '')
             : '',
+        tags: normalizeTags(
+          proposal.changePayload &&
+          typeof proposal.changePayload === 'object' &&
+          'tags' in proposal.changePayload
+            ? proposal.changePayload.tags
+            : [],
+        ),
         status: 'suggested',
         createdAt: proposal.createdAt,
       })),

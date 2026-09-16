@@ -272,6 +272,7 @@ export interface GraphEdge {
   relationType: string;
   description: string | null;
   evidence: string;
+  tags: string[];
   status: 'confirmed';
   createdAt: string;
 }
@@ -283,6 +284,7 @@ export interface SuggestedGraphEdge {
   description: string;
   reason: string;
   evidence: string;
+  tags: string[];
   status: 'suggested';
   createdAt: string;
 }
