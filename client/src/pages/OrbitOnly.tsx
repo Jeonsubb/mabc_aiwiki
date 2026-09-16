@@ -13,7 +13,7 @@ function mulberryHash(seed: number) {
   };
 }
 
-function makeSoftDotTexture(): THREE.Texture {
+function makeStarTexture(): THREE.Texture {
   const size = 64;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -24,14 +24,33 @@ function makeSoftDotTexture(): THREE.Texture {
     empty.needsUpdate = true;
     return empty;
   }
-  const half = size / 2;
-  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-  gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.18, 'rgba(255,255,255,0.95)');
-  gradient.addColorStop(0.55, 'rgba(255,255,255,0.35)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const maxR = size / 2;
+  ctx.clearRect(0, 0, size, size);
+
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.28);
+  coreGrad.addColorStop(0, 'rgba(255,255,255,1)');
+  coreGrad.addColorStop(0.06, 'rgba(255,255,255,0.98)');
+  coreGrad.addColorStop(0.16, 'rgba(255,255,255,0.8)');
+  coreGrad.addColorStop(0.28, 'rgba(255,255,255,0)');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxR * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+
+  const haloGrad = ctx.createRadialGradient(cx, cy, maxR * 0.12, cx, cy, maxR * 0.95);
+  haloGrad.addColorStop(0, 'rgba(200,225,250,0)');
+  haloGrad.addColorStop(0.08, 'rgba(190,215,245,0.4)');
+  haloGrad.addColorStop(0.22, 'rgba(150,180,220,0.22)');
+  haloGrad.addColorStop(0.5, 'rgba(110,140,185,0.07)');
+  haloGrad.addColorStop(1, 'rgba(80,100,140,0)');
+  ctx.fillStyle = haloGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxR * 0.95, 0, Math.PI * 2);
+  ctx.fill();
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
   return texture;
@@ -164,7 +183,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       return 0x5f9b7a;
     };
 
-    const starTexture = makeSoftDotTexture();
+    const starTexture = makeStarTexture();
 
     const nodeBaseColor = 0xc8d6e5;
     const nodeHighlightColor = 0xe9f4ff;
@@ -173,7 +192,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       map: starTexture,
       transparent: true,
       depthWrite: false,
-      opacity: 0.95,
+      opacity: 0.85,
       color: nodeBaseColor,
     });
 
@@ -182,7 +201,21 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       const sprite = new THREE.Sprite(material);
       const position = node.position;
       sprite.position.set(position[0], position[1], position[2] + 0.002);
-      sprite.scale.set(0.2, 0.2, 1);
+      const baseScale = 0.22;
+      sprite.scale.set(baseScale, baseScale, 1);
+      sprite.userData = {
+        pulsePhase: Math.random() * Math.PI * 2,
+        pulseSpeed: (2 * Math.PI) / (3 + Math.random() * 3),
+        pulseAmplitude: 0.14 + Math.random() * 0.08,
+        pulseScaleAmplitude: 0.05 + Math.random() * 0.04,
+        tierOpacity: 0.85,
+        baseScale,
+        currentOpacity: 0.85,
+        targetOpacity: 0.85,
+        currentScale: baseScale,
+        targetScale: baseScale,
+        targetColor: nodeBaseColor,
+      };
       scene.add(sprite);
       return sprite;
     });
@@ -203,13 +236,14 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
     const edgeHighlightMaterial = new THREE.LineBasicMaterial({
       color: 0xe9f4ff,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0,
       depthWrite: false,
     });
 
     const edgeGeometries: THREE.BufferGeometry[] = [];
     const edgeHighlightGeometries: THREE.Line[] = [];
     const edgeHighlightMaterials: THREE.LineBasicMaterial[] = [];
+    const edgeHighlightTargetOpacity: number[] = [];
 
     for (const [sourceId, targetId] of SAMPLE_EDGES) {
       const source = nodeMap[sourceId];
@@ -234,6 +268,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       scene.add(highlightLine);
       edgeHighlightGeometries.push(highlightLine);
       edgeHighlightMaterials.push(highlightMaterial);
+      edgeHighlightTargetOpacity.push(0);
     }
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -299,13 +334,39 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         const highlighted = isSelected || isConnected;
 
         if (highlighted) {
-          sprite.material.color.setHex(nodeHighlightColor);
-          sprite.material.opacity = isSelected ? 1 : 0.55;
-          sprite.scale.setScalar(isSelected ? 0.32 : 0.24);
+          sprite.userData.targetColor = nodeHighlightColor;
+          if (isSelected) {
+            sprite.userData.baseScale = 0.36;
+            sprite.userData.tierOpacity = 1;
+            sprite.userData.pulseAmplitude = 0;
+            sprite.userData.pulseScaleAmplitude = 0;
+            sprite.userData.targetScale = 0.36;
+            sprite.userData.targetOpacity = 1;
+          } else {
+            sprite.userData.baseScale = 0.26;
+            sprite.userData.tierOpacity = 0.6;
+            sprite.userData.pulseAmplitude = 0.1;
+            sprite.userData.pulseScaleAmplitude = 0.04;
+            sprite.userData.targetScale = 0.26;
+            sprite.userData.targetOpacity = 0.6;
+          }
         } else {
-          sprite.material.color.setHex(nodeBaseColor);
-          sprite.material.opacity = id == null ? 0.95 : 0.35;
-          sprite.scale.set(id == null ? 0.2 : 0.12, id == null ? 0.2 : 0.12, 1);
+          sprite.userData.targetColor = nodeBaseColor;
+          if (id == null) {
+            sprite.userData.baseScale = 0.22;
+            sprite.userData.tierOpacity = 0.85;
+            sprite.userData.pulseAmplitude = 0.18;
+            sprite.userData.pulseScaleAmplitude = 0.06;
+            sprite.userData.targetScale = 0.22;
+            sprite.userData.targetOpacity = 0.85;
+          } else {
+            sprite.userData.baseScale = 0.14;
+            sprite.userData.tierOpacity = 0.3;
+            sprite.userData.pulseAmplitude = 0.08;
+            sprite.userData.pulseScaleAmplitude = 0.03;
+            sprite.userData.targetScale = 0.14;
+            sprite.userData.targetOpacity = 0.3;
+          }
         }
       }
 
@@ -314,9 +375,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         const connected = id == null
           ? false
           : (sourceId === id || targetId === id);
-        const hl = edgeHighlightGeometries[i];
-        hl.visible = connected;
-        edgeHighlightMaterials[i].opacity = connected ? 0.95 : 0;
+        edgeHighlightTargetOpacity[i] = connected ? 0.95 : 0;
       }
     };
     updateHighlightForSelectedRef.current = updateHighlightForSelected;
@@ -374,6 +433,35 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
 
     function animate() {
       animateRef.current = requestAnimationFrame(animate);
+      const now = performance.now() / 1000;
+      const dt = 1 / 60;
+      const lerpSpeed = 4;
+      const lerpFactor = 1 - Math.exp(-lerpSpeed * dt);
+      for (const sprite of nodeSprites) {
+        const ud = sprite.userData;
+        if (!ud || ud.pulseAmplitude == null) continue;
+        ud.currentOpacity += (ud.targetOpacity - ud.currentOpacity) * lerpFactor;
+        ud.currentScale += (ud.targetScale - ud.currentScale) * lerpFactor;
+        sprite.material.color.lerp(new THREE.Color(ud.targetColor), lerpFactor);
+        const pulse = Math.sin(now * ud.pulseSpeed + ud.pulsePhase);
+        const opacityOffset = pulse * ud.pulseAmplitude;
+        const baseOpacity = ud.currentOpacity;
+        sprite.material.opacity = Math.max(baseOpacity * 0.7, baseOpacity + opacityOffset);
+        if (ud.pulseScaleAmplitude > 0) {
+          const scaleOffset = pulse * ud.pulseScaleAmplitude;
+          const s = ud.currentScale + scaleOffset;
+          sprite.scale.set(s, s, 1);
+        } else {
+          sprite.scale.set(ud.currentScale, ud.currentScale, 1);
+        }
+      }
+      for (let i = 0; i < edgeHighlightMaterials.length; i++) {
+        const target = edgeHighlightTargetOpacity[i] ?? 0;
+        const current = edgeHighlightMaterials[i].opacity;
+        edgeHighlightMaterials[i].opacity += (target - current) * (1 - Math.exp(-2 * dt));
+        const line = edgeHighlightGeometries[i];
+        if (line) line.visible = edgeHighlightMaterials[i].opacity > 0.01;
+      }
       controls.update();
       renderer.render(scene, camera);
     }
