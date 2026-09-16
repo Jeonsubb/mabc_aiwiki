@@ -191,7 +191,8 @@ export default function OrbitOnly({
     }
 
     return Array.from(tagNodeIds.entries())
-      .map(([tag, nodeIds]) => ({
+        .filter(([, nodeIds]) => new Set(nodeIds).size >= 2)
+        .map(([tag, nodeIds]) => ({
         id: `tag-${tag}`,
         label: tag,
         nodeIds,
