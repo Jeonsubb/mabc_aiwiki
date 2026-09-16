@@ -204,12 +204,15 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       const baseScale = 0.22;
       sprite.scale.set(baseScale, baseScale, 1);
       sprite.userData = {
+        nodeId: node.id,
         pulsePhase: Math.random() * Math.PI * 2,
         pulseSpeed: (2 * Math.PI) / (3 + Math.random() * 3),
         pulseAmplitude: 0.14 + Math.random() * 0.08,
         pulseScaleAmplitude: 0.05 + Math.random() * 0.04,
         tierOpacity: 0.85,
         baseScale,
+        hoverScale: 0,
+        targetHoverScale: 0,
         currentOpacity: 0.85,
         targetOpacity: 0.85,
         currentScale: baseScale,
@@ -283,6 +286,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
     const isDragging = { current: false as boolean };
     const didDrag = { current: false as boolean };
     const selectedHitOnDown = { current: null as SessionNode | null };
+    const hoverId = { current: null as string | null };
 
     const nodeRadiusForHit = 0.22;
 
@@ -380,6 +384,27 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
     };
     updateHighlightForSelectedRef.current = updateHighlightForSelected;
 
+    const updateHoverForMouseMove = (e: MouseEvent) => {
+      if (isDragging.current) {
+        hoverId.current = null;
+        for (const sprite of nodeSprites) {
+          const ud = sprite.userData;
+          if (!ud) continue;
+          ud.targetHoverScale = 0;
+        }
+        return;
+      }
+      const hit = hitNodeFromEvent(e);
+      const newHoverId = hit ? hit.id : null;
+      if (newHoverId === hoverId.current) return;
+      hoverId.current = newHoverId;
+      for (const sprite of nodeSprites) {
+        const ud = sprite.userData;
+        if (!ud) continue;
+        ud.targetHoverScale = (newHoverId != null && ud.nodeId === newHoverId) ? 1 : 0;
+      }
+    };
+
     const minScale = 4;
     const maxScale = 40;
     let viewLeft = centerX - width / 2;
@@ -442,6 +467,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         if (!ud || ud.pulseAmplitude == null) continue;
         ud.currentOpacity += (ud.targetOpacity - ud.currentOpacity) * lerpFactor;
         ud.currentScale += (ud.targetScale - ud.currentScale) * lerpFactor;
+        ud.hoverScale += (ud.targetHoverScale - ud.hoverScale) * (1 - Math.exp(-3 * dt));
         sprite.material.color.lerp(new THREE.Color(ud.targetColor), lerpFactor);
         const pulse = Math.sin(now * ud.pulseSpeed + ud.pulsePhase);
         const opacityOffset = pulse * ud.pulseAmplitude;
@@ -449,10 +475,10 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         sprite.material.opacity = Math.max(baseOpacity * 0.7, baseOpacity + opacityOffset);
         if (ud.pulseScaleAmplitude > 0) {
           const scaleOffset = pulse * ud.pulseScaleAmplitude;
-          const s = ud.currentScale + scaleOffset;
+          const s = ud.currentScale * (1 + ud.hoverScale * 2) + scaleOffset;
           sprite.scale.set(s, s, 1);
         } else {
-          sprite.scale.set(ud.currentScale, ud.currentScale, 1);
+          sprite.scale.set(ud.currentScale * (1 + ud.hoverScale * 2), ud.currentScale * (1 + ud.hoverScale * 2), 1);
         }
       }
       for (let i = 0; i < edgeHighlightMaterials.length; i++) {
@@ -476,6 +502,12 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       isDragging.current = true;
       didDrag.current = false;
       selectedHitOnDown.current = hitNodeFromEvent(e);
+      for (const sprite of nodeSprites) {
+        const ud = sprite.userData;
+        if (!ud) continue;
+        ud.targetHoverScale = 0;
+      }
+      hoverId.current = null;
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -561,10 +593,20 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
     };
 
     const canvasEl = renderer.domElement;
+    const onMouseLeave = () => {
+      hoverId.current = null;
+      for (const sprite of nodeSprites) {
+        const ud = sprite.userData;
+        if (!ud) continue;
+        ud.targetHoverScale = 0;
+      }
+    };
     canvasEl.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     canvasEl.addEventListener('wheel', onWheel, { passive: false });
+    canvasEl.addEventListener('mousemove', updateHoverForMouseMove);
+    canvasEl.addEventListener('mouseleave', onMouseLeave);
 
     const onResize = () => {
       if (!mountRef.current) return;
@@ -600,6 +642,8 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       canvasEl.removeEventListener('wheel', onWheel);
+      canvasEl.removeEventListener('mousemove', updateHoverForMouseMove);
+      canvasEl.removeEventListener('mouseleave', onMouseLeave);
       controls.dispose();
 
       nodeSprites.forEach((sprite) => {
