@@ -97,6 +97,18 @@ const SAMPLE_EDGES = [
   ['g2-3', 'g3-2'],
 ] as const;
 
+type TagDef = {
+  id: string;
+  label: string;
+  nodeIds: string[];
+};
+
+const TAG_DEFS: TagDef[] = [
+  { id: 'tag-a', label: '태그 A', nodeIds: ['g1-1', 'g1-2', 'g1-3', 'g1-4'] },
+  { id: 'tag-b', label: '태그 B', nodeIds: ['g2-1', 'g2-2', 'g2-3', 'g2-4'] },
+  { id: 'tag-c', label: '태그 C', nodeIds: ['g3-1', 'g3-2', 'g3-3', 'g3-4'] },
+];
+
 const DEMO_SESSION = {
   id: 'g3-3',
   title: '물류 창고 화재 보상 문의',
@@ -121,9 +133,15 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
   const [titleContent, setTitleContent] = useState('');
   const [infoOpen, setInfoOpen] = useState(false);
   const [showFullDialog, setShowFullDialog] = useState(false);
+  const [activeTagId, setActiveTagId] = useState<string | null>(null);
+  const activeTagIdRef = useRef<string | null>(null);
+  const handleTagClick = (tagId: string) => {
+    setActiveTagId((prev) => (prev === tagId ? null : tagId));
+  };
   const labelRef = useRef<HTMLDivElement | null>(null);
   const updateLabelPositionRef = useRef<((id: string | null) => void) | null>(null);
   const updateHighlightForSelectedRef = useRef<((id: string | null) => void) | null>(null);
+  const updateHighlightForActiveTagRef = useRef<((tagId: string | null) => void) | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -225,6 +243,14 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
 
     const nodeTextures = [starTexture];
 
+    const nodeIdToTagIds: Record<string, string[]> = {};
+    for (const tag of TAG_DEFS) {
+      for (const nid of tag.nodeIds) {
+        if (!nodeIdToTagIds[nid]) nodeIdToTagIds[nid] = [];
+        nodeIdToTagIds[nid].push(tag.id);
+      }
+    }
+
     const nodeMap = Object.fromEntries(
       SAMPLE_SESSION_NODES.map((n) => [n.id, n]),
     ) as Record<string, SessionNode>;
@@ -317,72 +343,89 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       return null;
     };
 
-    const updateHighlightForSelected = (id: string | null) => {
+    const updateHighlights = () => {
+      const selected = selectedIdRef.current;
+      const activeTag = activeTagIdRef.current;
       const connectedIds = new Set<string>();
-      if (id != null) {
+      if (selected != null) {
         for (const [sourceId, targetId] of SAMPLE_EDGES) {
-          if (sourceId === id) connectedIds.add(targetId);
-          if (targetId === id) connectedIds.add(sourceId);
+          if (sourceId === selected) connectedIds.add(targetId);
+          if (targetId === selected) connectedIds.add(sourceId);
         }
-        connectedIds.add(id);
       }
-
       for (const sprite of nodeSprites) {
-        const node = SAMPLE_SESSION_NODES.find((n) => {
-          return Math.abs(n.position[0] - sprite.position.x) < 0.001 &&
-            Math.abs(n.position[1] - sprite.position.y) < 0.001;
-        });
-        if (!node) continue;
-        const isSelected = id === node.id;
-        const isConnected = connectedIds.has(node.id);
-        const highlighted = isSelected || isConnected;
-
-        if (highlighted) {
-          sprite.userData.targetColor = nodeHighlightColor;
-          if (isSelected) {
-            sprite.userData.baseScale = 0.36;
-            sprite.userData.tierOpacity = 1;
-            sprite.userData.pulseAmplitude = 0;
-            sprite.userData.pulseScaleAmplitude = 0;
-            sprite.userData.targetScale = 0.36;
-            sprite.userData.targetOpacity = 1;
-          } else {
-            sprite.userData.baseScale = 0.26;
-            sprite.userData.tierOpacity = 0.6;
-            sprite.userData.pulseAmplitude = 0.1;
-            sprite.userData.pulseScaleAmplitude = 0.04;
-            sprite.userData.targetScale = 0.26;
-            sprite.userData.targetOpacity = 0.6;
-          }
+        const ud = sprite.userData;
+        if (!ud) continue;
+        const nodeId = ud.nodeId;
+        const isSelected = nodeId === selected;
+        const isConnected = selected != null && connectedIds.has(nodeId);
+        const inTag = activeTag != null && nodeIdToTagIds[nodeId]?.includes(activeTag);
+        if (isSelected) {
+          ud.targetColor = nodeHighlightColor;
+          ud.baseScale = 0.36;
+          ud.tierOpacity = 1;
+          ud.pulseAmplitude = 0;
+          ud.pulseScaleAmplitude = 0;
+          ud.targetScale = 0.36;
+          ud.targetOpacity = 1;
+        } else if (inTag) {
+          ud.targetColor = nodeHighlightColor;
+          ud.baseScale = 0.36;
+          ud.tierOpacity = 1;
+          ud.pulseAmplitude = 0;
+          ud.pulseScaleAmplitude = 0;
+          ud.targetScale = 0.36;
+          ud.targetOpacity = 1;
+        } else if (isConnected) {
+          ud.targetColor = nodeHighlightColor;
+          ud.baseScale = 0.26;
+          ud.tierOpacity = 0.6;
+          ud.pulseAmplitude = 0.1;
+          ud.pulseScaleAmplitude = 0.04;
+          ud.targetScale = 0.26;
+          ud.targetOpacity = 0.6;
         } else {
-          sprite.userData.targetColor = nodeBaseColor;
-          if (id == null) {
-            sprite.userData.baseScale = 0.22;
-            sprite.userData.tierOpacity = 0.85;
-            sprite.userData.pulseAmplitude = 0.18;
-            sprite.userData.pulseScaleAmplitude = 0.06;
-            sprite.userData.targetScale = 0.22;
-            sprite.userData.targetOpacity = 0.85;
+          ud.targetColor = nodeBaseColor;
+          if (selected == null) {
+            ud.baseScale = 0.22;
+            ud.tierOpacity = 0.85;
+            ud.pulseAmplitude = 0.18;
+            ud.pulseScaleAmplitude = 0.06;
+            ud.targetScale = 0.22;
+            ud.targetOpacity = 0.85;
           } else {
-            sprite.userData.baseScale = 0.14;
-            sprite.userData.tierOpacity = 0.3;
-            sprite.userData.pulseAmplitude = 0.08;
-            sprite.userData.pulseScaleAmplitude = 0.03;
-            sprite.userData.targetScale = 0.14;
-            sprite.userData.targetOpacity = 0.3;
+            ud.baseScale = 0.14;
+            ud.tierOpacity = 0.3;
+            ud.pulseAmplitude = 0.08;
+            ud.pulseScaleAmplitude = 0.03;
+            ud.targetScale = 0.14;
+            ud.targetOpacity = 0.3;
           }
         }
       }
-
+      const tagEdges = new Set<number>();
+      if (activeTag != null) {
+        for (let i = 0; i < SAMPLE_EDGES.length; i++) {
+          const [sourceId, targetId] = SAMPLE_EDGES[i];
+          const sIn = nodeIdToTagIds[sourceId]?.includes(activeTag);
+          const tIn = nodeIdToTagIds[targetId]?.includes(activeTag);
+          if (sIn && tIn) tagEdges.add(i);
+        }
+      }
       for (let i = 0; i < SAMPLE_EDGES.length; i++) {
-        const [sourceId, targetId] = SAMPLE_EDGES[i];
-        const connected = id == null
-          ? false
-          : (sourceId === id || targetId === id);
-        edgeHighlightTargetOpacity[i] = connected ? 0.95 : 0;
+        if (activeTag != null) {
+          edgeHighlightTargetOpacity[i] = tagEdges.has(i) ? 0.95 : 0;
+        } else {
+          const [sourceId, targetId] = SAMPLE_EDGES[i];
+          const connected = selected == null
+            ? false
+            : (sourceId === selected || targetId === selected);
+          edgeHighlightTargetOpacity[i] = connected ? 0.95 : 0;
+        }
       }
     };
-    updateHighlightForSelectedRef.current = updateHighlightForSelected;
+    updateHighlightForSelectedRef.current = updateHighlights;
+    updateHighlightForActiveTagRef.current = updateHighlights;
 
     const updateHoverForMouseMove = (e: MouseEvent) => {
       if (isDragging.current) {
@@ -492,6 +535,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       renderer.render(scene, camera);
     }
 
+    updateHighlightForActiveTagRef.current?.(activeTagIdRef.current);
     animate();
 
     const onMouseDown = (e: MouseEvent) => {
@@ -546,10 +590,11 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       }
 
       if (hitOnDown) {
+        setActiveTagId(null);
         setSelectedId(hitOnDown.id);
         setTitleContent(hitOnDown.title);
         setTitleVisible(true);
-        updateHighlightForSelected(hitOnDown.id);
+        updateHighlightForSelectedRef.current?.(hitOnDown.id);
         setInfoOpen(true);
         onSelect?.(hitOnDown);
         if (hitOnDown.id === 'g3-3') {
@@ -558,7 +603,7 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
       } else {
         setSelectedId(null);
         setTitleVisible(false);
-        updateHighlightForSelected(null);
+        updateHighlightForSelectedRef.current?.(null);
         setInfoOpen(false);
         onSelect?.(null);
       }
@@ -669,8 +714,14 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
   }, []);
 
   useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
+  selectedIdRef.current = selectedId;
+  updateHighlightForSelectedRef.current?.(selectedId);
+}, [selectedId]);
+
+  useEffect(() => {
+    activeTagIdRef.current = activeTagId;
+    updateHighlightForActiveTagRef.current?.(activeTagId);
+  }, [activeTagId]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -691,6 +742,37 @@ export default function OrbitOnly({ infoPanelVisible = true, onSelect }: OrbitOn
         position: 'relative',
       }}
     >
+      <div
+        style={{
+          position: 'absolute',
+          left: 12,
+          top: 12,
+          display: 'flex',
+          gap: 8,
+          pointerEvents: 'auto',
+        }}
+      >
+        {TAG_DEFS.map((tag) => (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={() => handleTagClick(tag.id)}
+            style={{
+              background: activeTagId === tag.id ? 'rgba(200, 214, 226, 0.18)' : 'rgba(200, 214, 226, 0.08)',
+              border: '1px solid rgba(159, 182, 196, 0.3)',
+              borderRadius: 5,
+              color: '#dfe9f2',
+              cursor: 'pointer',
+              fontSize: 12,
+              padding: '4px 10px',
+              fontFamily: 'inherit',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {tag.label}
+          </button>
+        ))}
+      </div>
       {selectedId != null && (
         <div
           ref={labelRef}
