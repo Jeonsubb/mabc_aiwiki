@@ -13,6 +13,7 @@
   "exclude": [
     "src/mcpClient.ts",
     "src/mcp-test.ts",
-    "src/test-mcp-server.ts"
+    "src/test-mcp-server.ts",
+    "vitest.config.ts"
   ]
 }

@@ -275,11 +275,10 @@ export default function McpCredentials() {
       발급된 토큰과 MCP 서버 주소를 복사하세요.
     </li>
     <li>
-      타임리의 <strong>설정 → MCP 서버 → 서버 추가</strong>로 이동하세요.
+      timelyai-agent의 <strong>커넥터 등록 → JSON등록 → HTTP 서버 추가</strong>로 이동하세요.
     </li>
     <li>
-      연결 방식으로 <strong>HTTP MCP</strong> 또는{' '}
-      <strong>Streamable HTTP</strong>를 선택하세요.
+      연결 방식으로 <strong>HTTP MCP</strong>를 선택하세요.
     </li>
     <li>
       서버 주소와 인증 정보를 아래와 같이 입력하세요.
