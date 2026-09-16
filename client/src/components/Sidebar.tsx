@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   Hexagon,
-  Inbox,
   Lightbulb,
   KeyRound,
   BookOpen,
@@ -11,7 +10,6 @@ import {
 const menuItems = [
   { to: "/", icon: Hexagon, label: "생각 지도" },
   { to: "/wiki", icon: BookOpen, label: "내 위키" },
-  { to: "/records", icon: Inbox, label: "유입 기록" },
   { to: "/proposals", icon: Lightbulb, label: "제안 목록" },
   { to: "/credentials", icon: KeyRound, label: "MCP 연결" },
 ] as const;
