@@ -229,16 +229,26 @@ export default function McpCredentials() {
                 onClick={handleCopyConfig}
                 disabled={!mcpUrlConfigured || configCopied}
               >
-               {mcpUrlConfigured ? '연결 정보 복사' : '주소 미설정'}
+                {!mcpUrlConfigured
+                  ? '주소 미설정'
+                  : configCopied
+                    ? '복사됨'
+                    : '타임리 설정 JSON 복사'}
               </button>
             </div>
             {copyError ? (
               <p className="record-error" style={{ marginTop: 'var(--sp-sm)' }}>
                 {copyError}
               </p>
-            ) : tokenCopied || configCopied ? (
+            ) : null}
+            {tokenCopied && !copyError ? (
               <p className="text-success" style={{ marginTop: 'var(--sp-sm)' }}>
-                클립보드에 복사했습니다.
+                토큰을 클립보드에 복사했습니다.
+              </p>
+            ) : null}
+            {configCopied && !copyError ? (
+              <p className="text-success" style={{ marginTop: 'var(--sp-sm)' }}>
+                타임리 설정 JSON을 클립보드에 복사했습니다.
               </p>
             ) : null}
           </div>
