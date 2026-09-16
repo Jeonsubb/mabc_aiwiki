@@ -25,6 +25,7 @@ export default function McpCredentials() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteErrorId, setDeleteErrorId] = useState<string | null>(null);
+  const [deletingInProgressId, setDeletingInProgressId] = useState<string | null>(null);
 
   const mcpUrl = import.meta.env.VITE_MCP_URL || '';
   const mcpUrlConfigured = Boolean(mcpUrl);
@@ -115,6 +116,7 @@ export default function McpCredentials() {
   const handleDelete = async (id: string) => {
     setDeletingId(id);
     setDeleteErrorId(null);
+    setDeletingInProgressId(id);
     try {
       await api.deleteCredential(id);
       setCredentials((prev) => prev.filter((c) => c.id !== id));
@@ -122,6 +124,7 @@ export default function McpCredentials() {
       setDeleteErrorId(id);
     } finally {
       setDeletingId(null);
+      setDeletingInProgressId(null);
     }
   };
 
@@ -293,9 +296,9 @@ export default function McpCredentials() {
                               <button
                                 className="btn btn-danger"
                                 onClick={() => handleDelete(c.id)}
-                                disabled={deletingId === c.id}
+                                disabled={deletingInProgressId === c.id}
                               >
-                                {deletingId === c.id ? '삭제 중' : '삭제'}
+                                {deletingInProgressId === c.id ? '삭제 중' : '삭제'}
                               </button>
                               <button
                                 className="btn btn-ghost"
