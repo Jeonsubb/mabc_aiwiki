@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { NodeSourceRecord } from "@shared/api";
-import { api } from "../services/api";
 import { Bookmark, Link as LinkIcon, MessageSquare, ArrowRight } from "lucide-react";
 import type { Thought } from "./ThoughtMapGraph";
 
@@ -28,7 +27,6 @@ export default function DetailPanel({ thought, records }: DetailPanelProps) {  c
     setShowFullDialog(false);
   }, [thought?.id]);
 
-  const navigate = useNavigate();
   if (!thought) {
     return (
       <div className="detail-panel-scroll">
@@ -135,52 +133,71 @@ export default function DetailPanel({ thought, records }: DetailPanelProps) {  c
     );
   }
 
-  return (
-    <div className="detail-panel-scroll">
-      <div className="detail-panel-head">
+    return (
+    <div className="detail-panel-scroll node-detail">
+      <header className="node-detail-header">
         <h3>{thought.title}</h3>
-        <div className="detail-source">{thought.source}</div>
-      </div>
 
-      <div className="detail-panel-body">
-        <p className="node-summary">{thought.summary}</p>
-
-
-
-        <div className="detail-section">
-          <div className="detail-section-head">
-            <MessageSquare size={14} aria-hidden="true" />
-            <span>정리된 내용</span>
-          </div>
-          <div className="detail-section-quote">
-            {thought.content
-              ? thought.content.length > 300
-                ? thought.content.slice(0, 300) + "..."
-                : thought.content
-              : "아직 정리된 본문이 없습니다."}
-          </div>
-          <Link to={`/node/${thought.id}`} className="btn-ghost-sm">
-            전체 보기
-          </Link>
+        <div className="node-detail-tags">
+          {thought.source
+            .split(" · ")
+            .filter(Boolean)
+            .slice(0, 3)
+            .map((tag, index) => (
+              <span key={`${tag}-${index}`}>{tag}</span>
+            ))}
         </div>
 
-        <div className="detail-section-actions">
-          <button type="button" className="btn-ghost-sm" onClick={() => {
-            api.createChat({ title: thought.title })
-              .then((res) => {
-                navigate(`/chats/${res.chat.id}`);
-              })
-              .catch(() => {});
-          }}>
-            <ArrowRight
-              size={14}
-              style={{ marginRight: "6px" }}
-              aria-hidden="true"
-            />
-            대화로 이어가기
-          </button>
+        {thought.summary && (
+          <p className="node-detail-summary">{thought.summary}</p>
+        )}
+      </header>
+
+      <section className="node-detail-section">
+        <h4>정리된 내용</h4>
+
+        <div className="node-detail-content">
+          {thought.content
+            ? thought.content.slice(0, 600) +
+              (thought.content.length > 600 ? "…" : "")
+            : "아직 정리된 본문이 없습니다."}
         </div>
-      </div>
+
+        <Link
+          to={`/node/${thought.id}`}
+          className="node-detail-link"
+        >
+          위키 전체 보기 ↗
+        </Link>
+      </section>
+
+      <section className="node-detail-section">
+        <h4>출처 대화 · {records.length}개</h4>
+
+        {records.length === 0 ? (
+          <p className="node-detail-summary">
+            연결된 원문이 없습니다.
+          </p>
+        ) : (
+          records.map((record, index) => (
+            <details
+              key={`${thought.id}-${record.id}`}
+              className="node-detail-record"
+            >
+              <summary>
+                대화 {index + 1}
+                <span>
+                  {new Date(record.createdAt).toLocaleDateString("ko-KR")}
+                </span>
+              </summary>
+
+              <div className="node-detail-content">
+                {record.rawText}
+              </div>
+            </details>
+          ))
+        )}
+      </section>
     </div>
   );
 }

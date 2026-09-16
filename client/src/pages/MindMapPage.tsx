@@ -96,7 +96,7 @@ export default function MindMapPage() {
             id: selectedDetail.node.id,
             title: selectedDetail.node.title,
             summary: selectedDetail.node.summary,
-            source: selectedDetail.node.topics.join(" · ") || "위키",
+            source: selectedDetail.node.topics.slice(0, 3).join(" · ") || "위키",
             type: "node",
             content: selectedDetail.node.content,
           } : null}
