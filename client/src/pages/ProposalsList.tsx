@@ -39,7 +39,7 @@ export default function ProposalsList() {
       .finally(() => setLoading(false));
   }, []);
 
-  const isDeletable = (p: typeof proposals[0]) => p.status !== '제안됨';
+  const isDeletable = (p: typeof proposals[0]) => p.status === '기각됨' || p.status === '반영됨';
 
   const startDelete = (id: string) => {
     if (deletingIds.has(id)) return;
@@ -53,6 +53,17 @@ export default function ProposalsList() {
     try {
       await api.deleteProposal(id);
       setProposals((prev) => prev.filter((p) => p.id !== id));
+      // 제안 삭제 시 로컬 mabc_decisions 기록도 정리
+      try {
+        const raw = localStorage.getItem('mabc_decisions');
+        if (raw) {
+          const decisions: Array<{ proposalId: string }> = JSON.parse(raw);
+          localStorage.setItem(
+            'mabc_decisions',
+            JSON.stringify(decisions.filter((d) => d.proposalId !== id)),
+          );
+        }
+      } catch {}
     } catch (err) {
       setDeleteErrorId(id);
     } finally {
@@ -101,6 +112,36 @@ export default function ProposalsList() {
                 {statusBadge(p.status)}
               </div>
               <p className="proposal-status-label">{proposalStatusLabel(p.status)}</p>
+              {isDeletable(p) && (
+                <div className="proposal-delete">
+                  {pendingDeleteId === p.id ? (
+                    <div className="delete-confirm">
+                      <p className="delete-confirm-text">
+                        이 제안 기록만 삭제됩니다. 이미 반영된 위키노드와 연결 관계는 유지됩니다.
+                      </p>
+                      <div className="delete-confirm-actions">
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => confirmDelete(p.id)}
+                          disabled={deletingIds.has(p.id)}
+                        >
+                          {deletingIds.has(p.id) ? '삭제 중...' : '삭제'}
+                        </button>
+                        <button className="btn btn-ghost" onClick={cancelDelete}>
+                          취소
+                        </button>
+                      </div>
+                      {deleteErrorId === p.id && (
+                        <p className="error-msg">서버 오류로 삭제에 실패했어요.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <button className="btn btn-ghost btn-sm" onClick={() => startDelete(p.id)}>
+                      삭제
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))

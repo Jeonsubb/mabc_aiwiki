@@ -416,11 +416,22 @@ proposalsRouter.delete('/:id', requireAuth, async (req: Request, res: Response) 
       return res.status(403).json({ error: '다른 사용자의 제안은 삭제할 수 없습니다' });
     }
 
-    if (proposal.status === '제안됨') {
-      return res.status(409).json({ error: '제안됨 상태의 제안은 삭제할 수 없습니다' });
+    if (proposal.status === '제안됨' || proposal.status === '승인됨') {
+      return res.status(409).json({ error: '제안됨·승인됨 상태의 제안은 삭제할 수 없습니다' });
     }
 
-    await db.proposal.delete({ where: { id: proposal.id } });
+    // 반영된 제안은 nodeRelationship.proposedBy 참조를 해제한 뒤 제안만 삭제한다.
+    // 이미 반영된 위키노드·버전·관계 자체는 삭제하지 않는다.
+    await db.$transaction(async (tx) => {
+      if (proposal.status === '반영됨') {
+        await tx.nodeRelationship.updateMany({
+          where: { proposedBy: proposal.id },
+          data: { proposedBy: null },
+        });
+      }
+      await tx.proposal.delete({ where: { id: proposal.id } });
+    });
+
     res.json({ ok: true });
   } catch (err) {
     console.error('proposal delete error:', err);
