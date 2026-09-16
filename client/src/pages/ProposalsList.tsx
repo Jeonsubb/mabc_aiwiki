@@ -39,7 +39,8 @@ export default function ProposalsList() {
       .finally(() => setLoading(false));
   }, []);
 
-  const isDeletable = (p: typeof proposals[0]) => p.status === '기각됨' || p.status === '반영됨';
+  const isDeletable = (p: typeof proposals[0]) =>
+    p.status === '기각됨' || p.status === '반영됨' || p.status === '승인됨';
 
   const startDelete = (id: string) => {
     if (deletingIds.has(id)) return;
