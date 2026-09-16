@@ -17,7 +17,8 @@ export default function McpCredentials() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [rawToken, setRawToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [configCopied, setConfigCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
   const [revokingId, setRevokingId] = useState<string | null>(null);
@@ -69,44 +70,44 @@ export default function McpCredentials() {
   const handleCopyToken = async () => {
     if (!rawToken) return;
     setCopyError(null);
-    setCopied(false);
+    setTokenCopied(false);
     try {
       await navigator.clipboard.writeText(rawToken);
-      setCopied(true);
+      setTokenCopied(true);
     } catch {
       setCopyError('토큰 복사 실패');
     }
   };
 
   const handleCopyConfig = async () => {
-  if (!mcpUrlConfigured || !rawToken) return;
+    if (!mcpUrlConfigured || !rawToken) return;
 
-  setCopyError(null);
-  setCopied(false);
+    setCopyError(null);
+    setConfigCopied(false);
 
-  const config = JSON.stringify(
-    {
-      mcpServers: {
-        nodus: {
-          description: 'Nodus AI Wiki MCP',
-          url: mcpUrl,
-          headers: {
-            Authorization: `Bearer ${rawToken}`,
+    const config = JSON.stringify(
+      {
+        mcpServers: {
+          nodus: {
+            description: 'Nodus AI Wiki MCP',
+            url: mcpUrl,
+            headers: {
+              Authorization: `Bearer ${rawToken}`,
+            },
           },
         },
       },
-    },
-    null,
-    2,
-  );
+      null,
+      2,
+    );
 
-  try {
-    await navigator.clipboard.writeText(config);
-    setCopied(true);
-  } catch {
-    setCopyError('설정 JSON 복사 실패');
-  }
-};
+    try {
+      await navigator.clipboard.writeText(config);
+      setConfigCopied(true);
+    } catch {
+      setCopyError('설정 JSON 복사 실패');
+    }
+  };
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
     setRevokeError(null);
@@ -219,14 +220,14 @@ export default function McpCredentials() {
               <button
                 className="btn btn-ghost-sm"
                 onClick={handleCopyToken}
-                disabled={copied}
+                disabled={tokenCopied}
               >
-                {copied ? '복사됨' : '토큰 복사'}
+                {tokenCopied ? '복사됨' : '토큰 복사'}
               </button>
               <button
                 className="btn btn-ghost-sm"
                 onClick={handleCopyConfig}
-                disabled={!mcpUrlConfigured || copied}
+                disabled={!mcpUrlConfigured || configCopied}
               >
                {mcpUrlConfigured ? '연결 정보 복사' : '주소 미설정'}
               </button>
@@ -235,7 +236,7 @@ export default function McpCredentials() {
               <p className="record-error" style={{ marginTop: 'var(--sp-sm)' }}>
                 {copyError}
               </p>
-            ) : copied ? (
+            ) : tokenCopied || configCopied ? (
               <p className="text-success" style={{ marginTop: 'var(--sp-sm)' }}>
                 클립보드에 복사했습니다.
               </p>
