@@ -48,6 +48,9 @@ export default function McpCredentials() {
     try {
       const res = await api.createCredential(name.trim());
       setRawToken(res.token);
+      setTokenCopied(false);
+      setConfigCopied(false);
+      setCopyError(null);
       setCredentials((prev) => {
         const idx = prev.findIndex((c) => c.id === res.credential.id);
         if (idx >= 0) {
@@ -213,21 +216,20 @@ export default function McpCredentials() {
             <p className="text-mono-eyebrow" style={{ margin: 0 }}>
               발급된 토큰 (한 번만 표시)
             </p>
-            <div className="code-block" style={{ marginTop: 'var(--sp-sm)', wordBreak: 'break-all' }}>
+            <div className="code-block mcp-token-code" style={{ marginTop: 'var(--sp-sm)' }}>
               {rawToken}
             </div>
-            <div className="flex gap-sm" style={{ marginTop: 'var(--sp-sm)' }}>
+            <div className="mcp-token-actions" style={{ marginTop: 'var(--sp-sm)' }}>
               <button
                 className="btn btn-ghost-sm"
                 onClick={handleCopyToken}
-                disabled={tokenCopied}
               >
                 {tokenCopied ? '복사됨' : '토큰 복사'}
               </button>
               <button
                 className="btn btn-ghost-sm"
                 onClick={handleCopyConfig}
-                disabled={!mcpUrlConfigured || configCopied}
+                disabled={!mcpUrlConfigured}
               >
                 {!mcpUrlConfigured
                   ? '주소 미설정'

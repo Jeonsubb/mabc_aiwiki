@@ -2307,7 +2307,36 @@ code, pre {
 .card > .btn { margin-top: var(--sp-sm); margin-right: var(--sp-sm); }
 .card > a > strong { font-size: var(--text-md); color: var(--text-primary); }
 
-/* ---------- MCP 연결 페이지: 다른 목록 페이지와 틀 맞춤 ---------- */
+/* ---------- MCP 연결 페이지 레이아웃 ---------- */
+
+.mcp-token-code {
+  overflow-x: hidden;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-width: 100%;
+  display: block;
+}
+
+.mcp-token-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-sm);
+  width: 100%;
+  min-width: 0;
+}
+
+.mcp-token-actions .btn-ghost-sm {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .mcp-token-actions {
+    grid-template-columns: 1fr;
+  }
+}
 .section-head { margin: 0 0 var(--sp-lg); }
 .section-head .eyebrow { display: none; }
 .section-head h2 { margin: 0 0 var(--sp-xs); font-size: var(--text-xl); }
