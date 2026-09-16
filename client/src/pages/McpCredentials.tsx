@@ -79,25 +79,34 @@ export default function McpCredentials() {
   };
 
   const handleCopyConfig = async () => {
-    if (!mcpUrlConfigured || !rawToken) return;
-    setCopyError(null);
-    setCopied(false);
-    const config = JSON.stringify(
-      {
-        mcpUrl,
-        authorization: `Bearer ${rawToken}`,
-      },
-      null,
-      2,
-    );
-    try {
-      await navigator.clipboard.writeText(config);
-      setCopied(true);
-    } catch {
-      setCopyError('설정 복사 실패');
-    }
-  };
+  if (!mcpUrlConfigured || !rawToken) return;
 
+  setCopyError(null);
+  setCopied(false);
+
+  const config = JSON.stringify(
+    {
+      mcpServers: {
+        nodus: {
+          description: 'Nodus AI Wiki MCP',
+          url: mcpUrl,
+          headers: {
+            Authorization: `Bearer ${rawToken}`,
+          },
+        },
+      },
+    },
+    null,
+    2,
+  );
+
+  try {
+    await navigator.clipboard.writeText(config);
+    setCopied(true);
+  } catch {
+    setCopyError('설정 JSON 복사 실패');
+  }
+};
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
     setRevokeError(null);
@@ -135,7 +144,7 @@ export default function McpCredentials() {
         <span className="eyebrow">MCP</span>
         <h2>MCP 연결</h2>
         <p className="section-lead">
-          AI 에이전트에 아래 서버 주소와 토큰을 등록하면, 에이전트가 정리한 대화를 이 서비스로 보낼 수 있습니다.
+          타임리에 MCP 서버 주소와 토큰을 등록하면, 대화 중 위키 저장을 요청할 수 있습니다.
         </p>
       </div>
 
@@ -219,7 +228,7 @@ export default function McpCredentials() {
                 onClick={handleCopyConfig}
                 disabled={!mcpUrlConfigured || copied}
               >
-                {mcpUrlConfigured ? '설정 JSON 복사' : '주소 미설정'}
+               {mcpUrlConfigured ? '연결 정보 복사' : '주소 미설정'}
               </button>
             </div>
             {copyError ? (
@@ -234,6 +243,71 @@ export default function McpCredentials() {
           </div>
         ) : null}
       </div>
+      <div className="card" style={{ marginBottom: 'var(--sp-lg)' }}>
+  <p className="record-title" style={{ margin: 0 }}>
+    타임리에서 연결하는 방법
+  </p>
+
+  <ol
+    style={{
+      margin: 'var(--sp-md) 0 0',
+      paddingLeft: '1.25rem',
+      lineHeight: 1.8,
+    }}
+  >
+    <li>
+      위에서 연결 이름을 입력하고 <strong>토큰 발급</strong>을 누르세요.
+    </li>
+    <li>
+      발급된 토큰과 MCP 서버 주소를 복사하세요.
+    </li>
+    <li>
+      타임리의 <strong>설정 → MCP 서버 → 서버 추가</strong>로 이동하세요.
+    </li>
+    <li>
+      연결 방식으로 <strong>HTTP MCP</strong> 또는{' '}
+      <strong>Streamable HTTP</strong>를 선택하세요.
+    </li>
+    <li>
+      서버 주소와 인증 정보를 아래와 같이 입력하세요.
+    </li>
+  </ol>
+
+  <div
+    className="code-block"
+    style={{
+      marginTop: 'var(--sp-md)',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-all',
+    }}
+  >
+    {`서버 주소
+${mcpUrlConfigured ? mcpUrl : 'VITE_MCP_URL 설정 필요'}
+
+인증 헤더
+Authorization: Bearer ${rawToken ?? '발급받은 토큰'}`}
+  </div>
+
+  <p className="hint" style={{ marginTop: 'var(--sp-md)' }}>
+    연결한 뒤 타임리에서 “이 대화를 내 위키에 저장해줘”라고 요청하세요.
+  </p>
+
+  <div
+    className="code-block"
+    style={{
+      marginTop: 'var(--sp-sm)',
+      whiteSpace: 'pre-wrap',
+    }}
+  >
+    타임리에서 저장 요청 → 유입 기록 보관 → 위키 제안 생성 → 사용자
+    수락 → 내 위키 반영
+  </div>
+
+  <p className="record-error" style={{ marginTop: 'var(--sp-md)' }}>
+    토큰은 발급 직후 한 번만 표시됩니다. 비밀번호처럼 안전하게
+    보관하세요.
+  </p>
+</div>
 
       <div className="card">
         <p className="record-title" style={{ margin: 0 }}>
