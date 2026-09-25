@@ -3,6 +3,7 @@ import { db } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { generateChatReplyWithContext, type ChatMessageRole } from '../solar';
 import { buildChatWithContext, detectSearchIntent } from '../search/chat-context';
+import { chatTools } from '../services/chatTools';
 
 export const chatsRouter = Router();
 
@@ -194,6 +195,9 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
     const reply = await generateChatReplyWithContext(
       existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
       context,
+      [...chatTools] as Array<{ name: string; description: string; parameters: Record<string, unknown> }>,
+      userId,
+      chatId,
     );
 
     if (reply.status !== 'success' || reply.content.length === 0) {
@@ -207,6 +211,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
         error: reply.error || 'AI 답변을 생성하지 못했음',
         pendingUserMessageId: userMessage.id,
         userMessage,
+        createdProposalIds: [],
       });
     }
 
@@ -239,6 +244,7 @@ chatsRouter.post('/:id/messages', requireAuth, async (req: Request, res: Respons
       status: 'success',
       userMessage,
       assistantMessage,
+      createdProposalIds: reply.createdProposalIds,
     });
   } catch (err) {
         if (savedUserMessageId) {
@@ -366,6 +372,9 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
     const reply = await generateChatReplyWithContext(
       existingMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
       context,
+      [...chatTools] as Array<{ name: string; description: string; parameters: Record<string, unknown> }>,
+      userId,
+      chatId,
     );
 
     if (reply.status !== 'success' || reply.content.length === 0) {
@@ -379,6 +388,7 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
         status: 'error',
         error: reply.error || 'AI 답변을 생성하지 못했음',
         userMessage: target,
+        createdProposalIds: [],
       });
     }
 
@@ -428,6 +438,7 @@ chatsRouter.post('/:id/retry', requireAuth, async (req: Request, res: Response) 
       status: 'success',
       userMessage: target,
       assistantMessage,
+      createdProposalIds: reply.createdProposalIds,
     });
   } catch (err) {
         if (claimedRetryMessageId) {

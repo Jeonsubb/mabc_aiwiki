@@ -1,6 +1,7 @@
 import { formatContextBlock, SearchedWithContext } from './search/chat-context';
 import OpenAI from 'openai';
 import { createHash } from 'crypto';
+import { executeChatTool } from './services/chatTools';
 
 const apiKey = process.env.SOLAR_API_KEY || '';
 const client: OpenAI | null = apiKey
@@ -532,79 +533,217 @@ function loadChatbotSystemPrompt(): string {
 // ── 채팅 답변용 Solar 호출 (chatbot 내장 챗봇) ──────────────────────────────
 
 export interface ChatMessageRole {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  toolCallId?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
 }
 
 export interface ChatReplyResult {
   status: 'success' | 'service_error' | 'no_result' | 'parse_error';
   content: string;
   error?: string;
+  createdProposalIds: string[];
+}
+
+export interface ChatTools {
+  name: string;
+  description: string;
+  parameters: object;
 }
 
 export async function generateChatReplyWithContext(
   messages: ChatMessageRole[],
   context: SearchedWithContext,
+  tools?: Array<{ name: string; description: string; parameters: Record<string, unknown> }>,
+  userId?: string,
+  chatId?: string,
 ): Promise<ChatReplyResult> {
+  const createdProposalIds: string[] = [];
+
   if (!client) {
     return {
       status: 'service_error',
       content: '',
       error: 'Solar API 키가 설정되지 않았습니다.',
+      createdProposalIds,
     };
   }
 
   const systemPrompt = loadChatbotSystemPrompt();
   const contextBlock = formatContextBlock(context);
 
-  const payload: ChatMessageRole[] = [
+  const baseMessages: ChatMessageRole[] = [
     { role: 'system', content: systemPrompt + (contextBlock ? '\n\n' + contextBlock : '') },
     ...messages,
   ];
 
-  try {
-    const response = await client.chat.completions.create({
-      model: SOLAR_MODEL,
-      messages: payload,
-      temperature: 0.7,
-      max_tokens: 2048,
+  let payloadMessages: ChatMessageRole[] = baseMessages;
+  let toolRound = 0;
+  const maxToolRounds = 3;
+
+  while (true) {
+    toolRound++;
+    if (toolRound > maxToolRounds + 1) break;
+
+    const openaiMessages: OpenAI.ChatCompletionMessageParam[] = payloadMessages.map((m) => {
+      if (m.role === 'tool') {
+        return {
+          role: 'tool',
+          content: m.content,
+          tool_call_id: m.toolCallId ?? '',
+        };
+      }
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        return {
+          role: 'assistant',
+          content: m.content || undefined,
+          tool_calls: m.tool_calls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments,
+            },
+          })),
+        };
+      }
+      return {
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      };
     });
 
-    const choices = response.choices;
-    if (!choices || choices.length === 0) {
-      return {
-        status: 'no_result',
-        content: '',
-        error: 'Solar 응답 선택지가 없음',
-      };
-    }
+    try {
+      const response = await client.chat.completions.create({
+        model: SOLAR_MODEL,
+        messages: openaiMessages,
+        temperature: 0.7,
+        max_tokens: 2048,
+        tools: tools && tools.length > 0
+          ? tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }))
+          : undefined,
+        tool_choice: tools && tools.length > 0 ? 'auto' : undefined,
+      });
 
-    const choice = choices[0];
-    if (!choice || !choice.message) {
-      return {
-        status: 'no_result',
-        content: '',
-        error: 'Solar 응답 내용이 없음',
-      };
-    }
+      const choices = response.choices;
+      if (!choices || choices.length === 0) {
+        return { status: 'no_result', content: '', error: 'Solar 응답 선택지가 없음', createdProposalIds };
+      }
 
-    const content = (choice.message.content ?? '');
-    if (!content.trim()) {
-      return {
-        status: 'no_result',
-        content: '',
-        error: 'Solar 응답이 비어 있음',
-      };
-    }
+      const choice = choices[0];
+      if (!choice || !choice.message) {
+        return { status: 'no_result', content: '', error: 'Solar 응답 내용이 없음', createdProposalIds };
+      }
 
-    return { status: 'success', content: content.trim() };
-  } catch (err) {
-    return {
-      status: 'service_error',
-      content: '',
-      error: String((err as Error).message ?? 'Solar 호출 오류'),
-    };
+      const message = choice.message;
+      const content = (message.content ?? '').trim();
+
+      const assistantToolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> = [];
+      {
+        const tcList = message.tool_calls as Array<{ id: string; type: string; function: { name: string; arguments: string } }> | undefined;
+        if (tcList) {
+          for (const tc of tcList) {
+            assistantToolCalls.push({ id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } });
+          }
+        }
+      }
+
+      if (assistantToolCalls.length > 0) {
+        const assistantMessage: ChatMessageRole = {
+          role: 'assistant',
+          content: content || '',
+          tool_calls: assistantToolCalls,
+        };
+        payloadMessages = [...payloadMessages, assistantMessage];
+
+        for (const tc of assistantToolCalls) {
+          const args = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
+          let toolResult: unknown;
+          try {
+            toolResult = await executeChatTool(tc.function.name, args, userId || '', chatId);
+          } catch (err) {
+            toolResult = { error: err instanceof Error ? err.message : String(err), name: tc.function.name };
+          }
+          if (typeof toolResult === 'object' && toolResult !== null) {
+            const r = toolResult as Record<string, unknown>;
+            if (Array.isArray(r.proposals)) {
+              for (const p of r.proposals) {
+                if (typeof p === 'object' && p !== null && 'id' in p) {
+                  const pid = (p as Record<string, unknown>).id;
+                  if (typeof pid === 'string') {
+                    createdProposalIds.push(pid);
+                  }
+                }
+              }
+            }
+          }
+          const toolMessage: ChatMessageRole = {
+            role: 'tool',
+            content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+            toolCallId: tc.id,
+          };
+          payloadMessages = [...payloadMessages, toolMessage];
+        }
+        continue;
+      }
+
+      if (!content) {
+        return { status: 'no_result', content: '', error: 'Solar 응답이 비어 있음', createdProposalIds };
+      }
+
+      return { status: 'success', content, createdProposalIds };
+    } catch (err) {
+      return { status: 'service_error', content: '', error: String((err as Error).message ?? 'Solar 호출 오류'), createdProposalIds };
+    }
   }
+
+  if (payloadMessages.length > baseMessages.length) {
+    try {
+      const last = await client.chat.completions.create({
+        model: SOLAR_MODEL,
+        messages: payloadMessages.map((m) => {
+          if (m.role === 'tool') {
+            return { role: 'tool' as const, content: m.content, tool_call_id: m.toolCallId ?? '' };
+          }
+          if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+            return {
+              role: 'assistant' as const,
+              content: m.content || undefined,
+              tool_calls: m.tool_calls.map((tc) => ({
+                id: tc.id,
+                type: 'function' as const,
+                function: { name: tc.function.name, arguments: tc.function.arguments },
+              })),
+            };
+          }
+          return { role: m.role as 'user' | 'assistant' | 'system', content: m.content };
+        }),
+        temperature: 0.7,
+        max_tokens: 2048,
+        tool_choice: 'none',
+      });
+      const choices = last.choices;
+      if (choices && choices.length > 0 && choices[0].message?.content?.trim()) {
+        return { status: 'success', content: choices[0].message.content.trim(), createdProposalIds };
+      }
+    } catch {}
+  }
+
+  for (const m of payloadMessages) {
+    if (m.role === 'assistant' && typeof m.content === 'string' && m.content.trim().length > 0) {
+      return { status: 'success', content: m.content.trim(), createdProposalIds };
+    }
+  }
+
+  return { status: 'no_result', content: '', error: '도구 호출 반복 중 최종 답변을 생성하지 못함', createdProposalIds };
 }
 
 export function normalizeTags(
