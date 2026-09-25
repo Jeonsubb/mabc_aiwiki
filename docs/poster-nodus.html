@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>Nodus — 포스터</title>
+<style>
+  :root {
+    --ink: #0f1a17; --body: #3c4a46; --mute: #6f7d79; --faint: #9aa8a4;
+    --bg: #f5f8f7; --card: #ffffff; --line: #e1e8e6;
+    --g1: #0e3b34; --g2: #14594c; --g3: #1f8a74; --accent: #2aa387; --accent-soft: #dcefe9;
+    --sans: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--body); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .poster { width: 1080px; margin: 0 auto; background: var(--bg); }
+  h1, h2, h3, h4, p { margin: 0; }
+  /* ---- hero ---- */
+  .hero { position: relative; overflow: hidden; padding: 84px 72px 0; color: #fff; text-align: center;
+    background: radial-gradient(1200px 600px at 50% -10%, #2aa387 0%, #14594c 38%, #0e3b34 72%, #0a2c27 100%); }
+  .hero::before { content: ""; position: absolute; inset: 0; background:
+    radial-gradient(2px 2px at 12% 18%, rgba(255,255,255,.55) 50%, transparent 51%),
+    radial-gradient(2px 2px at 30% 62%, rgba(255,255,255,.35) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 70% 22%, rgba(255,255,255,.5) 50%, transparent 51%),
+    radial-gradient(2px 2px at 86% 55%, rgba(255,255,255,.4) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 52% 12%, rgba(255,255,255,.45) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 8% 70%, rgba(255,255,255,.3) 50%, transparent 51%),
+    radial-gradient(2px 2px at 92% 20%, rgba(255,255,255,.35) 50%, transparent 51%);
+    pointer-events: none; }
+  .hero .logo { display: inline-flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+  .hero .logo .mark { width: 54px; height: 54px; border-radius: 14px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); display: grid; place-items: center; }
+  .hero .logo svg { width: 30px; height: 30px; }
+  .hero h1 { font-size: 54px; line-height: 1.22; font-weight: 800; letter-spacing: -0.03em; margin: 34px 0 20px; }
+  .hero .sub { font-size: 19px; line-height: 1.6; color: rgba(255,255,255,.86); max-width: 720px; margin: 0 auto; }
+  .hero .sub b { color: #fff; font-weight: 700; }
+  .screens { position: relative; height: 470px; margin-top: 48px; }
+  .frame { position: absolute; background: #0b0f10; border-radius: 14px; box-shadow: 0 30px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.12); overflow: hidden; }
+  .frame .bar { height: 26px; background: #171c1e; display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .frame .bar i { width: 8px; height: 8px; border-radius: 50%; background: #3a4447; display: block; }
+  .frame img { display: block; width: 100%; }
+  .frame.main { left: 120px; right: 120px; top: 0; z-index: 3; }
+  .frame.left { left: 0; width: 420px; top: 70px; z-index: 2; transform: rotate(-3deg); opacity: .92; }
+  .frame.right { right: 0; width: 420px; top: 70px; z-index: 2; transform: rotate(3deg); opacity: .92; }
+  .hero .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 140px; background: linear-gradient(to bottom, rgba(245,248,247,0), var(--bg) 85%); z-index: 4; }
+  /* ---- stats ---- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 56px 72px 24px; }
+  .stat { text-align: center; }
+  .stat .num { font-size: 46px; font-weight: 800; color: var(--g2); letter-spacing: -0.03em; line-height: 1.1; }
+  .stat .num small { font-size: 26px; font-weight: 700; margin-left: 4px; }
+  .stat .label { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 8px; }
+  .stat .desc { font-size: 13.5px; color: var(--mute); margin-top: 4px; line-height: 1.5; }
+  /* ---- sections ---- */
+  .section { padding: 56px 72px 8px; }
+  .section .rule { width: 44px; height: 3px; background: var(--accent); margin: 0 auto 18px; border-radius: 2px; }
+  .section h2 { text-align: center; font-size: 30px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+  .section .lead { text-align: center; color: var(--mute); font-size: 16px; margin: 10px 0 36px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  .step .shot { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0b0f10; box-shadow: 0 14px 30px rgba(20,60,50,.12); }
+  .step .shot img { display: block; width: 100%; }
+  .step .cap { display: flex; gap: 12px; margin-top: 16px; }
+  .step .n { flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--g2); color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 15px; }
+  .step h3 { font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+  .step p { font-size: 14px; line-height: 1.6; color: var(--body); }
+  .devices { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  .device { display: grid; grid-template-columns: 200px 1fr; gap: 20px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; align-items: center; }
+  .device .shot { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: #0b0f10; height: 150px; }
+  .device .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+  .device h3 { font-size: 18px; font-weight: 800; color: var(--ink); line-height: 1.3; }
+  .device h3 span { display: block; color: var(--g3); }
+  .device p { font-size: 13.5px; line-height: 1.6; color: var(--body); margin-top: 8px; }
+  /* ---- quote ---- */
+  .quote { margin: 56px 72px 0; background: linear-gradient(135deg, var(--g2), var(--g1)); color: #fff; border-radius: 22px; padding: 44px 56px; text-align: center; }
+  .quote p.main { font-size: 24px; font-weight: 800; line-height: 1.5; letter-spacing: -0.01em; }
+  .quote p.sub { margin-top: 12px; font-size: 15px; color: rgba(255,255,255,.8); }
+  /* ---- footer ---- */
+  .footer { display: flex; justify-content: space-between; align-items: flex-end; padding: 36px 72px 44px; font-size: 13px; color: var(--mute); }
+  .footer b { color: var(--g2); font-size: 15px; }
+  .footer .right { text-align: right; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="logo">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9.5" r="2.2"/><circle cx="16" cy="7" r="2.2"/><circle cx="14" cy="15.5" r="2.2"/><line x1="10" y1="9.8" x2="14" y2="7.8"/><line x1="16" y1="9.2" x2="14.8" y2="13.8"/></svg></span>
+      Nodus
+    </div>
+    <h1>AI는 제안하고,<br/>위키는 내가 확정한다</h1>
+    <p class="sub">AI와 나눈 대화를 주제별 개인 위키와 생각 지도로 바꾸는 서비스.<br/><b>Solar Pro 4</b>는 초안과 갱신·연결 후보를 내고, 위키에 남길지는 <b>언제나 사용자</b>가 정합니다.</p>
+    <div class="screens">
+      <div class="frame left"><div class="bar"><i></i><i></i><i></i></div><img src="poster-assets/03-proposal-detail.png" alt="제안 상세: 변경 전후와 원문 근거"/></div>
+      <div class="frame right"><div class="bar"><i></i><i></i><i></i></div><img src="poster-assets/04-search.png" alt="위키와 과거 대화 통합 검색"/></div>
+      <div class="frame main"><div class="bar"><i></i><i></i><i></i></div><img src="poster-assets/01-home.png" alt="생각 지도 홈 화면"/></div>
+      <div class="fade"></div>
+    </div>
+  </section>
+
+  <!-- ===== STATS ===== -->
+  <section class="stats">
+    <div class="stat"><div class="num">0<small>건</small></div><div class="label">승인 없이 위키에 반영되는 내용</div><div class="desc">모든 초안·갱신·연결은 제안으로만 저장되고<br/>수락한 것만 위키와 생각 지도에 남습니다</div></div>
+    <div class="stat"><div class="num">3<small>종</small></div><div class="label">신규 · 갱신 · 연결 제안</div><div class="desc">각 제안에 이유, 원문 근거,<br/>변경 전후 미리보기가 함께 붙습니다</div></div>
+    <div class="stat"><div class="num">1<small>개</small></div><div class="label">모델, Solar Pro 4</div><div class="desc">후보 생성과 관계 유도를 한 모델이 맡고<br/>ai-wiki 스킬 규칙을 지침으로 삼습니다</div></div>
+  </section>
+
+  <!-- ===== HOW ===== -->
+  <section class="section">
+    <div class="rule"></div>
+    <h2>Nodus가 대화를 위키로 바꾸는 방법</h2>
+    <p class="lead">보관 → 후보 생성 → 제안 → 사용자 확인 → 반영. 승인 게이트를 지나지 않은 내용은 위키에 쓰이지 않습니다</p>
+    <div class="steps">
+      <div class="step">
+        <div class="shot"><img src="poster-assets/06-records.png" alt="유입 기록: 보관된 대화 원문"/></div>
+        <div class="cap"><span class="n">1</span><div><h3>대화를 그대로 보관한다</h3><p>에이전트에게 "위키에 저장해"라고 말하면 MCP로 그 구간이 전달됩니다. 원문은 정리본과 분리된 보관 영역에 그대로 남습니다.</p></div></div>
+      </div>
+      <div class="step">
+        <div class="shot"><img src="poster-assets/03-proposal-detail.png" alt="제안 상세: 근거와 변경 전후"/></div>
+        <div class="cap"><span class="n">2</span><div><h3>근거를 보고 제안을 고른다</h3><p>Solar가 기존 위키와 대조해 신규·갱신·연결 후보를 만듭니다. 어떤 문장에서 나왔는지, 무엇이 바뀌는지 확인한 뒤 수락하거나 기각합니다.</p></div></div>
+      </div>
+      <div class="step">
+        <div class="shot"><img src="poster-assets/01-home.png" alt="생각 지도: 승인된 노드와 관계"/></div>
+        <div class="cap"><span class="n">3</span><div><h3>확정한 것만 지도에 남는다</h3><p>수락한 노드와 관계만 생각 지도에 그려집니다. 노드를 누르면 정리된 내용을 읽고, 그 자리에서 대화를 이어갈 수 있습니다.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DEVICES ===== -->
+  <section class="section">
+    <div class="rule"></div>
+    <h2>통제와 근거를 잇는 장치들</h2>
+    <p class="lead">자동화는 후보를 만드는 데까지, 반영은 사람의 결정으로</p>
+    <div class="devices">
+      <div class="device">
+        <div class="shot"><img src="poster-assets/02-proposals.png" alt="제안 목록"/></div>
+        <div><h3>제안은 쌓이고,<span>위키는 결정으로만 자란다</span></h3><p>제안 목록에서 유형과 상태를 한눈에 봅니다. 결정과 시각은 서버에 남아 새로고침 후에도 유지되고, 이미 결정한 제안은 다시 바꿀 수 없습니다.</p></div>
+      </div>
+      <div class="device">
+        <div class="shot"><img src="poster-assets/04-search.png" alt="검색 결과"/></div>
+        <div><h3>위키와 과거 대화를<span>한 번에 찾는다</span></h3><p>키워드 하나로 승인된 위키 노드와 보관된 대화를 함께 검색합니다. 대화 결과에는 그 대화에서 만들어진 위키가 근거로 연결됩니다.</p></div>
+      </div>
+      <div class="device">
+        <div class="shot"><img src="poster-assets/05-chat.png" alt="서비스 내 Solar 대화"/></div>
+        <div><h3>대화도 서비스 안에서,<span>과거 맥락을 기억하며</span></h3><p>Solar와 바로 대화할 수 있고, 예전 대화나 위키를 묻는 질문에는 실제 기록을 찾아 답합니다. 대화가 곧 다음 위키의 재료가 됩니다.</p></div>
+      </div>
+      <div class="device">
+        <div class="shot"><img src="poster-assets/07-mcp.png" alt="MCP 연결 토큰"/></div>
+        <div><h3>내가 요청한 대화만,<span>내 계정으로만</span></h3><p>외부 에이전트는 사용자별 토큰으로만 대화를 보낼 수 있고, 저장 요청이 없으면 아무것도 전송되지 않습니다. 원본과 정리본은 계정 단위로 격리됩니다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== QUOTE ===== -->
+  <section class="quote">
+    <p class="main">"AI가 내 생각을 대신 정리해 두는 방향이 아니라,<br/>AI가 후보를 내고 내가 확정해 쌓아 가는 방향"</p>
+    <p class="sub">개인 지식 도구에서 사용자 승인 통제의 설계 기준을 제안합니다</p>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <section class="footer">
+    <div><b>Nodus</b><br/>AI 대화를 승인 통제형 개인 위키와 생각 지도로</div>
+    <div class="right">MABC 2026 결선 · Let's do well<br/>Solar Pro 4 · ai-wiki 스킬 · MCP 연동 · 실제 서비스 화면 수록</div>
+  </section>
+
+</div>
+</body>
+</html>

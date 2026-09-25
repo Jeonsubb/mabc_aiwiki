@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nodus PRD v0.2</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  :root {
+    --ink: #14181c; --body: #14181c; --mute: #14181c; --faint: #14181c;
+    --line: #e3e7ea; --line-strong: #cfd5da;
+    --bg: #ffffff; --panel: #f6f8f9; --panel-2: #eceff1;
+    --accent: #14181c; --accent-soft: #eef0f2; --accent-deep: #14181c;
+    --warn: #14181c; --warn-soft: #f1f3f4; --danger: #14181c; --danger-soft: #e6e9eb;
+    --p0: #14181c; --p1: #14181c; --p2: #14181c;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--body); font-family: var(--sans); font-size: 10.6pt; line-height: 1.62; }
+  h1, h2, h3, h4 { color: var(--ink); line-height: 1.3; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: 17pt; margin: 0 0 4mm; padding-bottom: 2.2mm; border-bottom: 2px solid var(--ink); display: flex; align-items: baseline; gap: 3mm; }
+  h2 .num { font-family: var(--mono); font-size: 10pt; color: var(--accent-deep); background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; font-weight: 600; }
+  h3 { font-size: 12.2pt; margin: 9mm 0 3.5mm; color: var(--accent-deep); }
+  h4 { font-size: 10.8pt; margin: 4mm 0 1.6mm; }
+  p { margin: 0 0 3mm; }
+  ul, ol { margin: 0 0 4mm; padding-left: 5.2mm; }
+  li { margin: 0 0 1.1mm; }
+  li::marker { color: var(--accent); }
+  strong { color: var(--ink); }
+  code { font-family: var(--mono); font-size: 9.2pt; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+  pre { font-family: var(--mono); font-size: 8.6pt; line-height: 1.5; background: #f4f6f7; color: #14181c; border: 1px solid var(--line-strong); padding: 3.2mm 3.6mm; border-radius: 6px; overflow: hidden; white-space: pre-wrap; word-break: break-all; margin: 1.6mm 0 3mm; }
+  pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 7mm; font-size: 9.7pt; }
+  th, td { border: 1px solid var(--line-strong); padding: 2mm 2.6mm; vertical-align: middle; text-align: center; }
+  th { background: var(--panel-2); color: var(--ink); font-weight: 700; }
+  td.c { text-align: center; vertical-align: middle; }
+  tr:nth-child(even) td { background: #fbfcfc; }
+  .section { break-before: page; page-break-before: always; }
+  .section:first-of-type { break-before: auto; page-break-before: auto; }
+  .avoid { break-inside: avoid; page-break-inside: avoid; }
+  .overview { display: flex; flex-direction: column; min-height: 254mm; }
+  .overview .block { break-inside: avoid; }
+  .overview .block + .block { margin-top: auto; }
+  .overview .block h3 { margin-top: 0; }
+  .lead { color: var(--body); font-size: 10.8pt; }
+  .note { font-size: 9.4pt; color: var(--mute); background: var(--panel); border-left: 3px solid var(--accent); padding: 2.4mm 3mm; margin: 3mm 0 6mm; border-radius: 0 6px 6px 0; }
+  .grid { display: grid; gap: 5mm; margin: 0 0 6mm; }
+  .grid.c2 { grid-template-columns: 1fr 1fr; }
+  .grid.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .grid.c1 { grid-template-columns: 1fr; }
+  .personas .card { display: grid; grid-template-columns: 52mm 1fr; column-gap: 5mm; align-items: start; }
+  .personas .card .eyebrow, .personas .card h4 { align-self: center; text-align: center; }
+  .personas .card .eyebrow { grid-row: 1; }
+  .personas .card h4 { grid-row: 2 / span 2; }
+  .personas .card .eyebrow { grid-column: 1; }
+  .personas .card h4 { grid-column: 1; margin: 0; }
+  .personas .card > p, .personas .card > dl { grid-column: 2; margin: 0; }
+  .personas .card > p { grid-row: 1 / span 2; }
+  .personas .card > dl { grid-row: 3; }
+  .personas .card .kv { grid-template-columns: 14mm 1fr; }
+  .card { border: 1px solid var(--line-strong); border-radius: 8px; padding: 3.2mm 3.6mm; background: #fff; break-inside: avoid; }
+  .card.tint { background: var(--panel); }
+  .card h4 { margin-top: 0; }
+  .eyebrow { font-family: var(--mono); font-size: 8.4pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-deep); margin-bottom: 1mm; display: block; }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 8.4pt; font-weight: 700; padding: 0.4mm 2.2mm; border-radius: 999px; border: 1px solid transparent; vertical-align: middle; }
+  .badge.p0 { background: var(--accent-soft); color: var(--p0); border-color: #cfd5da; }
+  .badge.p1 { background: #f1f3f4; color: var(--p1); border-color: var(--line-strong); }
+  .badge.p2 { background: var(--panel); color: var(--p2); border-color: var(--line-strong); }
+  .badge.in { background: var(--accent-soft); color: var(--p0); }
+  .badge.out { background: var(--danger-soft); color: var(--danger); }
+  .badge.done { background: var(--accent-soft); color: var(--p0); }
+  .badge.mcp { background: var(--panel-2); color: var(--ink); }
+  .kv { display: grid; grid-template-columns: 22mm 1fr; gap: 1mm 3mm; font-size: 9.8pt; margin: 2mm 0; }
+  .kv dt { color: var(--mute); font-weight: 600; }
+  .kv dd { margin: 0; }
+  .feature { border: 1px solid var(--line-strong); border-radius: 8px; padding: 3.4mm 4mm 2.8mm; margin: 0 0 5mm; break-inside: avoid; }
+  .feature .head { display: flex; align-items: center; justify-content: space-between; gap: 3mm; margin-bottom: 1.6mm; }
+  .feature .head h3 { margin: 0; font-size: 12pt; color: var(--ink); }
+  .feature .story { background: var(--panel); border-radius: 6px; padding: 1.6mm 3mm; font-style: italic; color: var(--body); margin: 1.2mm 0 2mm; }
+  .feature .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-bottom: 8mm; }
+  .feature .cols + p, .feature .cols + h4 { margin-top: 8mm; }
+  .feature h4 + ul + p { margin-top: 6mm; }
+  .feature .cols h4 { margin-top: 0.5mm; margin-bottom: 1mm; font-size: 9.8pt; color: var(--accent-deep); }
+  .feature ul { margin-bottom: 0.5mm; }
+  .feature li { margin-bottom: 0.8mm; }
+  .feature > p:last-child { margin-bottom: 1.5mm; }
+  /* 흐름도 */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5mm; align-items: stretch; margin: 5mm 0 3mm; }
+  .step { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; padding: 2.8mm 2.8mm 2.8mm; background: #fff; text-align: left; break-inside: avoid; display: grid; grid-template-columns: auto 1fr; column-gap: 1.6mm; row-gap: 1.2mm; align-items: center; }
+  .step .n { display: inline-grid; place-items: center; width: 4.6mm; height: 4.6mm; border-radius: 999px; background: var(--ink); color: #fff; font-family: var(--mono); font-size: 7.6pt; font-weight: 700; margin: 0; }
+  .step.auto { background: var(--panel); }
+  .step.human { background: #14181c; border-color: #14181c; }
+  .step.human h4 { color: #fff; }
+  .step.human p { color: #e6e9eb; }
+  .step.human .n { background: #fff; color: #14181c; }
+  .step h4 { font-size: 10.2pt; margin: 0; line-height: 1.2; }
+  .step p { font-size: 8.9pt; color: var(--body); margin: 0; line-height: 1.45; grid-column: 1 / -1; }
+  .step code { display: inline-block; white-space: nowrap; font-size: 7.6pt; padding: 0 2px; letter-spacing: -0.01em; }
+  .step::after { content: "›"; position: absolute; right: -4.1mm; top: 40%; font-size: 16pt; color: var(--faint); line-height: 1; }
+  .step:last-child::after { content: ""; }
+  .legend { display: flex; gap: 4mm; font-size: 8.9pt; color: var(--mute); margin: 2mm 0 6mm; }
+  .legend i { display: inline-block; width: 3.2mm; height: 3.2mm; border-radius: 2px; vertical-align: -0.4mm; margin-right: 1.4mm; border: 1px solid var(--line-strong); }
+  /* 저장 구조 그림 */
+  .twolayer { display: grid; grid-template-columns: 1fr 12mm 1fr; align-items: center; gap: 2mm; margin: 2mm 0 3.6mm; }
+  .layer { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 3mm; background: #fff; }
+  .layer h4 { margin: 0 0 1.4mm; font-size: 10.4pt; }
+  .layer ul { margin: 0; font-size: 9.4pt; }
+  .arrow { text-align: center; color: var(--faint); font-size: 18pt; }
+  /* 표지 */
+  .cover { min-height: 250mm; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover .brand { display: flex; align-items: center; gap: 3.4mm; color: var(--ink); }
+  .cover .brand svg { width: 12mm; height: 12mm; }
+  .cover .brand .name { font-size: 20pt; font-weight: 800; letter-spacing: -0.02em; }
+  .cover h1 { font-size: 40pt; letter-spacing: -0.03em; line-height: 1.15; margin: 16mm 0 10mm; }
+  .cover-shot { border-radius: 8px; overflow: hidden; border: 1px solid var(--line-strong); background: #0b0f10; box-shadow: 0 6mm 14mm rgba(0,0,0,.14); }
+  .cover-shot .bar { height: 6mm; background: #171c1e; display: flex; align-items: center; gap: 1.6mm; padding: 0 3mm; }
+  .cover-shot .bar i { width: 2.2mm; height: 2.2mm; border-radius: 50%; background: #3a4447; display: block; }
+  .cover-shot img { display: block; width: 100%; }
+  .cover .sub { font-size: 13pt; color: var(--body); max-width: 140mm; }
+  .cover .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm 8mm; border-top: 1px solid var(--line-strong); padding-top: 5mm; font-size: 10pt; }
+  .cover .meta b { color: var(--mute); font-weight: 600; margin-right: 2.4mm; }
+  .cover .pillars { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-top: 14mm; }
+  .cover .pillars .card { background: var(--panel); border-color: var(--line); }
+  .toc { columns: 2; column-gap: 8mm; font-size: 10pt; margin-top: 4mm; }
+  .toc li { break-inside: avoid; }
+  .toc .num { font-family: var(--mono); color: var(--accent-deep); margin-right: 2mm; }
+  .check li { list-style: none; position: relative; padding-left: 6mm; }
+  .check li::before { content: "✓"; position: absolute; left: 0; top: 0; color: var(--accent); font-weight: 800; }
+  .foot { font-size: 8.6pt; color: var(--faint); margin-top: 4mm; }
+  @media screen { body { background: #e9ecef; } .page { background: #fff; max-width: 210mm; margin: 8mm auto; padding: 16mm 16mm 18mm; box-shadow: 0 2px 20px rgba(0,0,0,.08); } }
+  @media print { .page { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ============ 표지 ============ -->
+<section class="cover">
+  <div>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#2f8f7a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9.5" r="2.2"/><circle cx="16" cy="7" r="2.2"/><circle cx="14" cy="15.5" r="2.2"/><line x1="10" y1="9.8" x2="14" y2="7.8"/><line x1="16" y1="9.2" x2="14.8" y2="13.8"/></svg>
+      <span class="name">Nodus</span>
+    </div>
+    <h1>AI 대화를<br/>승인 통제형 개인 위키와<br/>생각 지도로 바꾸는 서비스</h1>
+    <div class="cover-shot"><div class="bar"><i></i><i></i><i></i></div><img src="poster-assets/01-home.png" alt="Nodus 생각 지도 홈 화면"/></div>
+  </div>
+  <div class="meta">
+    <div><b>팀</b>Let's do well</div>
+    <div><b>팀원</b>이영민, 권윤재, 전동훈</div>
+  </div>
+</section>
+
+<!-- ============ 목차 ============ -->
+<section class="section overview">
+  <h2><span class="num">00</span>한눈에 보는 Nodus</h2>
+  <p class="lead"><strong>보관 → 후보 생성 → 제안 → 사용자 확인 → 반영</strong> 파이프라인</p>
+  <p class="lead">승인을 받지 않은 내용은 위키에 쓰이지 않습니다.</p>
+  <div class="block"><div class="flow">
+    <div class="step auto"><span class="n">1</span><h4>대화 보관</h4><p>사용자가 에이전트에게 "위키에 저장해"라고 하면 MCP로 원문 구간이 전달 및 보관</p></div>
+    <div class="step auto"><span class="n">2</span><h4>후보 생성</h4><p>Solar Pro 4 + ai-wiki 스킬이 기존 위키와 대조해 신규·갱신·연결 후보 생성</p></div>
+    <div class="step auto"><span class="n">3</span><h4>제안 제시</h4><p>제안 이유, 원문 근거, 변경 전후 미리보기를 함께 제시</p></div>
+    <div class="step human"><span class="n">4</span><h4>사용자 확인</h4><p>사용자가 근거를 보고 수락 또는 기각</p></div>
+    <div class="step human"><span class="n">5</span><h4>위키 반영</h4><p>수락한 것만 위키·버전 이력·생각 지도에 반영</p></div>
+  </div>
+  <div class="legend"><span><i style="background:var(--panel)"></i>자동화 구간</span><span><i style="background:#14181c"></i>사용자 승인 구간</span></div>
+
+  </div>
+<div class="block"><h3>주요 기능</h3>
+  <div class="grid c2">
+    <div class="card tint"><span class="eyebrow">기능 1</span><h4>Solar Pro 4 기반 서비스 자체 에이전트</h4><p>대화·메모를 읽어 위키 노드 초안과 기존 위키에 대한 갱신·연결 제안을 생성합니다. ai-wiki 스킬(ai-wiki-SKILL.md)의 운영 규칙을 지침으로 삼습니다.</p></div>
+    <div class="card tint"><span class="eyebrow">기능 2</span><h4>그래프 자동 연결·계층화</h4><p>대화를 노드와 관계로 잇고 주제→하위 주제→엔티티/아이디어로 조직합니다. 자동 연결은 후보로만 제시하고 실제 반영은 사용자 승인 아래 둡니다.</p></div>
+  </div>
+
+  </div>
+<div class="block"><h3>아키텍처</h3>
+  <div class="avoid" style="border:1px solid var(--line-strong);border-radius:8px;padding:3mm 3mm 1mm;background:#fff">
+  <svg viewBox="0 0 720 340" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Apple SD Gothic Neo, Pretendard, Noto Sans KR, sans-serif" aria-label="Nodus 아키텍처">
+    <defs><style>
+      .bx{fill:#fff;stroke:#cfd5da;stroke-width:1.2}
+      .t{font-size:12.5px;font-weight:700;fill:#14181c}
+      .s{font-size:9.5px;fill:#14181c}
+      .l{font-size:8.4px;fill:#14181c}
+      .ln{fill:none;stroke:#8a939b;stroke-width:1.2;stroke-dasharray:4 3}
+      .pill{fill:#f1f3f4;stroke:#cfd5da;stroke-width:1}
+      .actor{fill:none;stroke:#14181c;stroke-width:1.6;stroke-linecap:round}
+    </style></defs>
+    <!-- 연결선 -->
+    <line class="ln" x1="140" y1="60" x2="200" y2="60"/>
+    <line class="ln" x1="80" y1="90" x2="80" y2="150"/>
+    <polyline class="ln" points="300,90 300,120 390,120 390,150"/>
+    <line class="ln" x1="220" y1="192" x2="290" y2="192"/>
+    <line class="ln" x1="490" y1="192" x2="570" y2="192"/>
+    <line class="ln" x1="390" y1="234" x2="390" y2="270"/>
+    <!-- 연결선 라벨 -->
+    <rect class="pill" x="86" y="113" width="44" height="14" rx="7"/><text class="l" x="108" y="123" text-anchor="middle">웹 UI</text>
+    <rect class="pill" x="322" y="100" width="190" height="14" rx="7"/><text class="l" x="417" y="110" text-anchor="middle">MCP · submit_conversation · Bearer 토큰</text>
+    <rect class="pill" x="226" y="175" width="58" height="14" rx="7"/><text class="l" x="255" y="185" text-anchor="middle">REST /api</text>
+    <rect class="pill" x="499" y="175" width="62" height="14" rx="7"/><text class="l" x="530" y="185" text-anchor="middle">후보 · 관계</text>
+    <rect class="pill" x="398" y="245" width="44" height="14" rx="7"/><text class="l" x="420" y="255" text-anchor="middle">Prisma</text>
+    <!-- 사용자 (액터) -->
+    <rect class="bx" x="20" y="30" width="120" height="60" rx="8"/>
+    <circle class="actor" cx="48" cy="46" r="5"/>
+    <line class="actor" x1="48" y1="51" x2="48" y2="66"/>
+    <line class="actor" x1="39" y1="57" x2="57" y2="57"/>
+    <line class="actor" x1="48" y1="66" x2="41" y2="77"/>
+    <line class="actor" x1="48" y1="66" x2="55" y2="77"/>
+    <text class="t" x="98" y="56" text-anchor="middle">사용자</text>
+    <text class="s" x="98" y="71" text-anchor="middle">AI 대화 · 승인 결정</text>
+    <!-- 에이전트 -->
+    <rect class="bx" x="200" y="30" width="200" height="60" rx="8"/>
+    <text class="t" x="300" y="55" text-anchor="middle">AI 에이전트 (MCP 클라이언트)</text>
+    <text class="s" x="300" y="72" text-anchor="middle">Hermes Agent · Solar Pro 4 · "위키에 저장해" 요청</text>
+    <!-- 프론트 -->
+    <rect class="bx" x="20" y="150" width="200" height="84" rx="8"/>
+    <text class="t" x="120" y="171" text-anchor="middle">Frontend</text>
+    <g transform="translate(38 182) scale(0.5833)" fill="#14181c" aria-label="react"><path d="M14.23 12.004a2.236 2.236 0 0 1-2.235 2.236 2.236 2.236 0 0 1-2.236-2.236 2.236 2.236 0 0 1 2.235-2.236 2.236 2.236 0 0 1 2.236 2.236zm2.648-10.69c-1.346 0-3.107.96-4.888 2.622-1.78-1.653-3.542-2.602-4.887-2.602-.41 0-.783.093-1.106.278-1.375.793-1.683 3.264-.973 6.365C1.98 8.917 0 10.42 0 12.004c0 1.59 1.99 3.097 5.043 4.03-.704 3.113-.39 5.588.988 6.38.32.187.69.275 1.102.275 1.345 0 3.107-.96 4.888-2.624 1.78 1.654 3.542 2.603 4.887 2.603.41 0 .783-.09 1.106-.275 1.374-.792 1.683-3.263.973-6.365C22.02 15.096 24 13.59 24 12.004c0-1.59-1.99-3.097-5.043-4.032.704-3.11.39-5.587-.988-6.38-.318-.184-.688-.277-1.092-.278zm-.005 1.09v.006c.225 0 .406.044.558.127.666.382.955 1.835.73 3.704-.054.46-.142.945-.25 1.44-.96-.236-2.006-.417-3.107-.534-.66-.905-1.345-1.727-2.035-2.447 1.592-1.48 3.087-2.292 4.105-2.295zm-9.77.02c1.012 0 2.514.808 4.11 2.28-.686.72-1.37 1.537-2.02 2.442-1.107.117-2.154.298-3.113.538-.112-.49-.195-.964-.254-1.42-.23-1.868.054-3.32.714-3.707.19-.09.4-.127.563-.132zm4.882 3.05c.455.468.91.992 1.36 1.564-.44-.02-.89-.034-1.345-.034-.46 0-.915.01-1.36.034.44-.572.895-1.096 1.345-1.565zM12 8.1c.74 0 1.477.034 2.202.093.406.582.802 1.203 1.183 1.86.372.64.71 1.29 1.018 1.946-.308.655-.646 1.31-1.013 1.95-.38.66-.773 1.288-1.18 1.87-.728.063-1.466.098-2.21.098-.74 0-1.477-.035-2.202-.093-.406-.582-.802-1.204-1.183-1.86-.372-.64-.71-1.29-1.018-1.946.303-.657.646-1.313 1.013-1.954.38-.66.773-1.286 1.18-1.868.728-.064 1.466-.098 2.21-.098zm-3.635.254c-.24.377-.48.763-.704 1.16-.225.39-.435.782-.635 1.174-.265-.656-.49-1.31-.676-1.947.64-.15 1.315-.283 2.015-.386zm7.26 0c.695.103 1.365.23 2.006.387-.18.632-.405 1.282-.66 1.933-.2-.39-.41-.783-.64-1.174-.225-.392-.465-.774-.705-1.146zm3.063.675c.484.15.944.317 1.375.498 1.732.74 2.852 1.708 2.852 2.476-.005.768-1.125 1.74-2.857 2.475-.42.18-.88.342-1.355.493-.28-.958-.646-1.956-1.1-2.98.45-1.017.81-2.01 1.085-2.964zm-13.395.004c.278.96.645 1.957 1.1 2.98-.45 1.017-.812 2.01-1.086 2.964-.484-.15-.944-.318-1.37-.5-1.732-.737-2.852-1.706-2.852-2.474 0-.768 1.12-1.742 2.852-2.476.42-.18.88-.342 1.356-.494zm11.678 4.28c.265.657.49 1.312.676 1.948-.64.157-1.316.29-2.016.39.24-.375.48-.762.705-1.158.225-.39.435-.788.636-1.18zm-9.945.02c.2.392.41.783.64 1.175.23.39.465.772.705 1.143-.695-.102-1.365-.23-2.006-.386.18-.63.406-1.282.66-1.933zM17.92 16.32c.112.493.2.968.254 1.423.23 1.868-.054 3.32-.714 3.708-.147.09-.338.128-.563.128-1.012 0-2.514-.807-4.11-2.28.686-.72 1.37-1.536 2.02-2.44 1.107-.118 2.154-.3 3.113-.54zm-11.83.01c.96.234 2.006.415 3.107.532.66.905 1.345 1.727 2.035 2.446-1.595 1.483-3.092 2.295-4.11 2.295-.22-.005-.406-.05-.553-.132-.666-.38-.955-1.834-.73-3.703.054-.46.142-.944.25-1.438zm4.56.64c.44.02.89.034 1.345.034.46 0 .915-.01 1.36-.034-.44.572-.895 1.095-1.345 1.565-.455-.47-.91-.993-1.36-1.565z"/></g><text class="l" x="45" y="206" text-anchor="middle">React</text><g transform="translate(88 182) scale(0.5833)" fill="#14181c" aria-label="vite"><path d="M13.056 23.238a.57.57 0 0 1-1.02-.355v-5.202c0-.63-.512-1.143-1.144-1.143H5.148a.57.57 0 0 1-.464-.903l3.777-5.29c.54-.753 0-1.804-.93-1.804H.57a.574.574 0 0 1-.543-.746.6.6 0 0 1 .08-.157L5.008.78a.57.57 0 0 1 .467-.24h14.589a.57.57 0 0 1 .466.903l-3.778 5.29c-.54.755 0 1.806.93 1.806h5.745c.238 0 .424.138.513.322a.56.56 0 0 1-.063.603z"/></g><text class="l" x="95" y="206" text-anchor="middle">Vite</text><g transform="translate(138 182) scale(0.5833)" fill="#14181c" aria-label="threedotjs"><path d="M.38 0a.268.268 0 0 0-.256.332l2.894 11.716a.268.268 0 0 0 .01.04l2.89 11.708a.268.268 0 0 0 .447.128L23.802 7.15a.268.268 0 0 0-.112-.45l-5.784-1.667a.268.268 0 0 0-.123-.035L6.38 1.715a.268.268 0 0 0-.144-.04L.456.01A.268.268 0 0 0 .38 0zm.374.654L5.71 2.08 1.99 5.664zM6.61 2.34l4.864 1.4-3.65 3.515zm-.522.12l1.217 4.926-4.877-1.4zm6.28 1.538l4.878 1.404-3.662 3.53zm-.52.13l1.208 4.9-4.853-1.392zm6.3 1.534l4.947 1.424-3.715 3.574zm-.524.12l1.215 4.926-4.876-1.398zm-15.432.696l4.964 1.424-3.726 3.586zM8.047 8.15l4.877 1.4-3.66 3.527zm-.518.137l1.236 5.017-4.963-1.432zm6.274 1.535l4.965 1.425-3.73 3.586zm-.52.127l1.235 5.012-4.958-1.43zm-9.63 2.438l4.873 1.406-3.656 3.523zm5.854 1.687l4.863 1.403-3.648 3.51zm-.54.04l1.214 4.927-4.875-1.4zm-3.896 4.02l5.037 1.442-3.782 3.638z"/></g><text class="l" x="145" y="206" text-anchor="middle">three.js</text><g transform="translate(188 182) scale(0.5833)" fill="#14181c" aria-label="vercel"><path d="m12 1.608 12 20.784H0Z"/></g><text class="l" x="195" y="206" text-anchor="middle">Vercel</text>
+    <!-- 백엔드 -->
+    <rect class="bx" x="290" y="150" width="200" height="84" rx="8"/>
+    <text class="t" x="390" y="171" text-anchor="middle">Backend</text>
+    <g transform="translate(308 182) scale(0.5833)" fill="#14181c" aria-label="nodedotjs"><path d="M11.998,24c-0.321,0-0.641-0.084-0.922-0.247l-2.936-1.737c-0.438-0.245-0.224-0.332-0.08-0.383 c0.585-0.203,0.703-0.25,1.328-0.604c0.065-0.037,0.151-0.023,0.218,0.017l2.256,1.339c0.082,0.045,0.197,0.045,0.272,0l8.795-5.076 c0.082-0.047,0.134-0.141,0.134-0.238V6.921c0-0.099-0.053-0.192-0.137-0.242l-8.791-5.072c-0.081-0.047-0.189-0.047-0.271,0 L3.075,6.68C2.99,6.729,2.936,6.825,2.936,6.921v10.15c0,0.097,0.054,0.189,0.139,0.235l2.409,1.392 c1.307,0.654,2.108-0.116,2.108-0.89V7.787c0-0.142,0.114-0.253,0.256-0.253h1.115c0.139,0,0.255,0.112,0.255,0.253v10.021 c0,1.745-0.95,2.745-2.604,2.745c-0.508,0-0.909,0-2.026-0.551L2.28,18.675c-0.57-0.329-0.922-0.945-0.922-1.604V6.921 c0-0.659,0.353-1.275,0.922-1.603l8.795-5.082c0.557-0.315,1.296-0.315,1.848,0l8.794,5.082c0.57,0.329,0.924,0.944,0.924,1.603 v10.15c0,0.659-0.354,1.273-0.924,1.604l-8.794,5.078C12.643,23.916,12.324,24,11.998,24z M19.099,13.993 c0-1.9-1.284-2.406-3.987-2.763c-2.731-0.361-3.009-0.548-3.009-1.187c0-0.528,0.235-1.233,2.258-1.233 c1.807,0,2.473,0.389,2.747,1.607c0.024,0.115,0.129,0.199,0.247,0.199h1.141c0.071,0,0.138-0.031,0.186-0.081 c0.048-0.054,0.074-0.123,0.067-0.196c-0.177-2.098-1.571-3.076-4.388-3.076c-2.508,0-4.004,1.058-4.004,2.833 c0,1.925,1.488,2.457,3.895,2.695c2.88,0.282,3.103,0.703,3.103,1.269c0,0.983-0.789,1.402-2.642,1.402 c-2.327,0-2.839-0.584-3.011-1.742c-0.02-0.124-0.126-0.215-0.253-0.215h-1.137c-0.141,0-0.254,0.112-0.254,0.253 c0,1.482,0.806,3.248,4.655,3.248C17.501,17.007,19.099,15.91,19.099,13.993z"/></g><text class="l" x="315" y="206" text-anchor="middle">Node.js</text><g transform="translate(358 182) scale(0.5833)" fill="#14181c" aria-label="express"><path d="M12.262 16.666h1.146l6.975-9.325H19.22zm9.778 1.441v.004l-4.334-5.706-.557.74 4.873 6.682H.945V4.173h9.505l5.026 6.7.574-.772-4.374-5.928h.003l-.719-.945H0v17.544h24zM10.917 8.705a3.8 3.8 0 0 0-1.292-1.183q-.796-.45-1.916-.45c-.746 0-1.37.14-1.906.424a3.76 3.76 0 0 0-1.31 1.12 4.9 4.9 0 0 0-.75 1.581 7.17 7.17 0 0 0 0 3.696c.148.567.402 1.101.75 1.573a3.5 3.5 0 0 0 1.31 1.066q.803.39 1.906.389 1.77 0 2.739-.868.966-.867 1.328-2.457h-1.139q-.271 1.084-.977 1.734-.704.651-1.952.65-.812 0-1.392-.342a3.1 3.1 0 0 1-.957-.869 3.5 3.5 0 0 1-.551-1.182 5 5 0 0 1-.17-1.133 9 9 0 0 0-.015-.286 4.5 4.5 0 0 1 .015-.829c.047-.418.147-.83.296-1.223A3.7 3.7 0 0 1 5.54 9.05a2.9 2.9 0 0 1 .922-.742q.541-.28 1.246-.28c.47 0 .869.093 1.23.28q.541.281.922.742.379.461.587 1.057t.225 1.246H5.625l.004.957h6.182a7.3 7.3 0 0 0-.18-1.924 4.9 4.9 0 0 0-.715-1.68z"/></g><text class="l" x="365" y="206" text-anchor="middle">Express</text><g transform="translate(408 182) scale(0.5833)" fill="#14181c" aria-label="typescript"><path d="M1.125 0C.502 0 0 .502 0 1.125v21.75C0 23.498.502 24 1.125 24h21.75c.623 0 1.125-.502 1.125-1.125V1.125C24 .502 23.498 0 22.875 0zm17.363 9.75c.612 0 1.154.037 1.627.111a6.38 6.38 0 0 1 1.306.34v2.458a3.95 3.95 0 0 0-.643-.361 5.093 5.093 0 0 0-.717-.26 5.453 5.453 0 0 0-1.426-.2c-.3 0-.573.028-.819.086a2.1 2.1 0 0 0-.623.242c-.17.104-.3.229-.393.374a.888.888 0 0 0-.14.49c0 .196.053.373.156.529.104.156.252.304.443.444s.423.276.696.41c.273.135.582.274.926.416.47.197.892.407 1.266.628.374.222.695.473.963.753.268.279.472.598.614.957.142.359.214.776.214 1.253 0 .657-.125 1.21-.373 1.656a3.033 3.033 0 0 1-1.012 1.085 4.38 4.38 0 0 1-1.487.596c-.566.12-1.163.18-1.79.18a9.916 9.916 0 0 1-1.84-.164 5.544 5.544 0 0 1-1.512-.493v-2.63a5.033 5.033 0 0 0 3.237 1.2c.333 0 .624-.03.872-.09.249-.06.456-.144.623-.25.166-.108.29-.234.373-.38a1.023 1.023 0 0 0-.074-1.089 2.12 2.12 0 0 0-.537-.5 5.597 5.597 0 0 0-.807-.444 27.72 27.72 0 0 0-1.007-.436c-.918-.383-1.602-.852-2.053-1.405-.45-.553-.676-1.222-.676-2.005 0-.614.123-1.141.369-1.582.246-.441.58-.804 1.004-1.089a4.494 4.494 0 0 1 1.47-.629 7.536 7.536 0 0 1 1.77-.201zm-15.113.188h9.563v2.166H9.506v9.646H6.789v-9.646H3.375z"/></g><text class="l" x="415" y="206" text-anchor="middle">TypeScript</text><g transform="translate(458 182) scale(0.5833)" fill="#14181c" aria-label="render"><path d="M18.263.007c-3.121-.147-5.744 2.109-6.192 5.082-.018.138-.045.272-.067.405-.696 3.703-3.936 6.507-7.827 6.507-1.388 0-2.691-.356-3.825-.979a.2024.2024 0 0 0-.302.178V24H12v-8.999c0-1.656 1.338-3 2.987-3h2.988c3.382 0 6.103-2.817 5.97-6.244-.12-3.084-2.61-5.603-5.682-5.75"/></g><text class="l" x="465" y="206" text-anchor="middle">Render</text>
+    <!-- Solar -->
+    <rect class="bx" x="570" y="150" width="130" height="84" rx="8"/>
+    <text class="t" x="635" y="171" text-anchor="middle">Solar Pro 4</text>
+    <rect class="pill" x="605" y="182" width="60" height="16" rx="8"/><text class="l" x="635" y="193" text-anchor="middle" font-weight="700">UPSTAGE</text>
+    <text class="s" x="635" y="220" text-anchor="middle">ai-wiki 스킬을 지침으로</text>
+    <!-- DB -->
+    <rect class="bx" x="290" y="270" width="200" height="58" rx="8"/>
+    <g transform="translate(330 282) scale(0.5833)" fill="#14181c" aria-label="postgresql"><path d="M23.5594 14.7228a.5269.5269 0 0 0-.0563-.1191c-.139-.2632-.4768-.3418-1.0074-.2321-1.6533.3411-2.2935.1312-2.5256-.0191 1.342-2.0482 2.445-4.522 3.0411-6.8297.2714-1.0507.7982-3.5237.1222-4.7316a1.5641 1.5641 0 0 0-.1509-.235C21.6931.9086 19.8007.0248 17.5099.0005c-1.4947-.0158-2.7705.3461-3.1161.4794a9.449 9.449 0 0 0-.5159-.0816 8.044 8.044 0 0 0-1.3114-.1278c-1.1822-.0184-2.2038.2642-3.0498.8406-.8573-.3211-4.7888-1.645-7.2219.0788C.9359 2.1526.3086 3.8733.4302 6.3043c.0409.818.5069 3.334 1.2423 5.7436.4598 1.5065.9387 2.7019 1.4334 3.582.553.9942 1.1259 1.5933 1.7143 1.7895.4474.1491 1.1327.1441 1.8581-.7279.8012-.9635 1.5903-1.8258 1.9446-2.2069.4351.2355.9064.3625 1.39.3772a.0569.0569 0 0 0 .0004.0041 11.0312 11.0312 0 0 0-.2472.3054c-.3389.4302-.4094.5197-1.5002.7443-.3102.064-1.1344.2339-1.1464.8115-.0025.1224.0329.2309.0919.3268.2269.4231.9216.6097 1.015.6331 1.3345.3335 2.5044.092 3.3714-.6787-.017 2.231.0775 4.4174.3454 5.0874.2212.5529.7618 1.9045 2.4692 1.9043.2505 0 .5263-.0291.8296-.0941 1.7819-.3821 2.5557-1.1696 2.855-2.9059.1503-.8707.4016-2.8753.5388-4.1012.0169-.0703.0357-.1207.057-.1362.0007-.0005.0697-.0471.4272.0307a.3673.3673 0 0 0 .0443.0068l.2539.0223.0149.001c.8468.0384 1.9114-.1426 2.5312-.4308.6438-.2988 1.8057-1.0323 1.5951-1.6698zM2.371 11.8765c-.7435-2.4358-1.1779-4.8851-1.2123-5.5719-.1086-2.1714.4171-3.6829 1.5623-4.4927 1.8367-1.2986 4.8398-.5408 6.108-.13-.0032.0032-.0066.0061-.0098.0094-2.0238 2.044-1.9758 5.536-1.9708 5.7495-.0002.0823.0066.1989.0162.3593.0348.5873.0996 1.6804-.0735 2.9184-.1609 1.1504.1937 2.2764.9728 3.0892.0806.0841.1648.1631.2518.2374-.3468.3714-1.1004 1.1926-1.9025 2.1576-.5677.6825-.9597.5517-1.0886.5087-.3919-.1307-.813-.5871-1.2381-1.3223-.4796-.839-.9635-2.0317-1.4155-3.5126zm6.0072 5.0871c-.1711-.0428-.3271-.1132-.4322-.1772.0889-.0394.2374-.0902.4833-.1409 1.2833-.2641 1.4815-.4506 1.9143-1.0002.0992-.126.2116-.2687.3673-.4426a.3549.3549 0 0 0 .0737-.1298c.1708-.1513.2724-.1099.4369-.0417.156.0646.3078.26.3695.4752.0291.1016.0619.2945-.0452.4444-.9043 1.2658-2.2216 1.2494-3.1676 1.0128zm2.094-3.988-.0525.141c-.133.3566-.2567.6881-.3334 1.003-.6674-.0021-1.3168-.2872-1.8105-.8024-.6279-.6551-.9131-1.5664-.7825-2.5004.1828-1.3079.1153-2.4468.079-3.0586-.005-.0857-.0095-.1607-.0122-.2199.2957-.2621 1.6659-.9962 2.6429-.7724.4459.1022.7176.4057.8305.928.5846 2.7038.0774 3.8307-.3302 4.7363-.084.1866-.1633.3629-.2311.5454zm7.3637 4.5725c-.0169.1768-.0358.376-.0618.5959l-.146.4383a.3547.3547 0 0 0-.0182.1077c-.0059.4747-.054.6489-.115.8693-.0634.2292-.1353.4891-.1794 1.0575-.11 1.4143-.8782 2.2267-2.4172 2.5565-1.5155.3251-1.7843-.4968-2.0212-1.2217a6.5824 6.5824 0 0 0-.0769-.2266c-.2154-.5858-.1911-1.4119-.1574-2.5551.0165-.5612-.0249-1.9013-.3302-2.6462.0044-.2932.0106-.5909.019-.8918a.3529.3529 0 0 0-.0153-.1126 1.4927 1.4927 0 0 0-.0439-.208c-.1226-.4283-.4213-.7866-.7797-.9351-.1424-.059-.4038-.1672-.7178-.0869.067-.276.1831-.5875.309-.9249l.0529-.142c.0595-.16.134-.3257.213-.5012.4265-.9476 1.0106-2.2453.3766-5.1772-.2374-1.0981-1.0304-1.6343-2.2324-1.5098-.7207.0746-1.3799.3654-1.7088.5321a5.6716 5.6716 0 0 0-.1958.1041c.0918-1.1064.4386-3.1741 1.7357-4.4823a4.0306 4.0306 0 0 1 .3033-.276.3532.3532 0 0 0 .1447-.0644c.7524-.5706 1.6945-.8506 2.802-.8325.4091.0067.8017.0339 1.1742.081 1.939.3544 3.2439 1.4468 4.0359 2.3827.8143.9623 1.2552 1.9315 1.4312 2.4543-1.3232-.1346-2.2234.1268-2.6797.779-.9926 1.4189.543 4.1729 1.2811 5.4964.1353.2426.2522.4522.2889.5413.2403.5825.5515.9713.7787 1.2552.0696.087.1372.1714.1885.245-.4008.1155-1.1208.3825-1.0552 1.717-.0123.1563-.0423.4469-.0834.8148-.0461.2077-.0702.4603-.0994.7662zm.8905-1.6211c-.0405-.8316.2691-.9185.5967-1.0105a2.8566 2.8566 0 0 0 .135-.0406 1.202 1.202 0 0 0 .1342.103c.5703.3765 1.5823.4213 3.0068.1344-.2016.1769-.5189.3994-.9533.6011-.4098.1903-1.0957.333-1.7473.3636-.7197.0336-1.0859-.0807-1.1721-.151zm.5695-9.2712c-.0059.3508-.0542.6692-.1054 1.0017-.055.3576-.112.7274-.1264 1.1762-.0142.4368.0404.8909.0932 1.3301.1066.887.216 1.8003-.2075 2.7014a3.5272 3.5272 0 0 1-.1876-.3856c-.0527-.1276-.1669-.3326-.3251-.6162-.6156-1.1041-2.0574-3.6896-1.3193-4.7446.3795-.5427 1.3408-.5661 2.1781-.463zm.2284 7.0137a12.3762 12.3762 0 0 0-.0853-.1074l-.0355-.0444c.7262-1.1995.5842-2.3862.4578-3.4385-.0519-.4318-.1009-.8396-.0885-1.2226.0129-.4061.0666-.7543.1185-1.0911.0639-.415.1288-.8443.1109-1.3505.0134-.0531.0188-.1158.0118-.1902-.0457-.4855-.5999-1.938-1.7294-3.253-.6076-.7073-1.4896-1.4972-2.6889-2.0395.5251-.1066 1.2328-.2035 2.0244-.1859 2.0515.0456 3.6746.8135 4.8242 2.2824a.908.908 0 0 1 .0667.1002c.7231 1.3556-.2762 6.2751-2.9867 10.5405zm-8.8166-6.1162c-.025.1794-.3089.4225-.6211.4225a.5821.5821 0 0 1-.0809-.0056c-.1873-.026-.3765-.144-.5059-.3156-.0458-.0605-.1203-.178-.1055-.2844.0055-.0401.0261-.0985.0925-.1488.1182-.0894.3518-.1226.6096-.0867.3163.0441.6426.1938.6113.4186zm7.9305-.4114c.0111.0792-.049.201-.1531.3102-.0683.0717-.212.1961-.4079.2232a.5456.5456 0 0 1-.075.0052c-.2935 0-.5414-.2344-.5607-.3717-.024-.1765.2641-.3106.5611-.352.297-.0414.6111.0088.6356.1851z"/></g><text class="l" x="348" y="293" text-anchor="start">PostgreSQL</text><g transform="translate(418 282) scale(0.5833)" fill="#14181c" aria-label="prisma"><path d="M21.8068 18.2848L13.5528.7565c-.207-.4382-.639-.7273-1.1286-.7541-.5023-.0293-.9523.213-1.2062.6253L2.266 15.1271c-.2773.4518-.2718 1.0091.0158 1.4555l4.3759 6.7786c.2608.4046.7127.6388 1.1823.6388.1332 0 .267-.0188.3987-.0577l12.7019-3.7568c.3891-.1151.7072-.3904.8737-.7553s.1633-.7828-.0075-1.1454zm-1.8481.7519L9.1814 22.2242c-.3292.0975-.6448-.1873-.5756-.5194l3.8501-18.4386c.072-.3448.5486-.3996.699-.0803l7.1288 15.138c.1344.2856-.019.6224-.325.7128z"/></g><text class="l" x="436" y="293" text-anchor="start">Prisma</text>
+    <text class="s" x="390" y="318" text-anchor="middle">원본 보관 · 위키 정리본 · 제안 · 관계</text>
+  </svg>
+  </div>
+</div>
+</section>
+
+<!-- ============ 1. 개요 ============ -->
+<section class="section">
+  <h2><span class="num">01</span>개요</h2>
+  <h3>1.1 제품 설명</h3>
+  <p class="lead">사용자가 AI와 주고받은 대화를 읽고, <strong>개인화된 주제별 위키</strong>로 정리해 제공하는 <strong>웹 서비스</strong>입니다.</p>
+  <p>에이전트가 생성한 결과는 위키에 바로 쓰지 않고 <strong>제안 형태로만 제시</strong>하며, 사용자가 <strong>수락</strong>한 내용만 실제 개인 위키에 반영됩니다. 즉, 자동 정리 및 그래프 구축과 사람의 통제(수락/기각)를 함께 제공합니다.</p>
+  <p>개발자뿐 아니라 <strong>AI를 사용하는 모든 사용자</strong>를 대상으로 하며, 기술 지식뿐 아니라 아이디어·결정·계획·배움·회고 등 일상적 대화도 위키 형태로 다룰 수 있어야 합니다.</p>
+  <div class="note"><strong>자동과 승인의 구분</strong><br/>여기서 말하는 자동 제안 및 자동 정리란 대화를 읽어 위키 노드·제안 후보를 만드는 구간까지를 뜻합니다. 후보를 실제 위키에 반영하는 단계는 반드시 사용자 승인을 거칩니다. 즉 <strong>후보 생성은 자동화 영역, 실제 반영은 사용자 승인 영역</strong>입니다.</div>
+
+  <h3>1.2 목표</h3>
+  <ul class="check">
+    <li>개발자뿐 아니라 AI를 사용하는 일반 사용자도 부담 없이 쓸 수 있는 낮은 진입장벽과 친근한 경험을 제공합니다.</li>
+    <li>외부 AI 대화를 MCP를 통해 사용자별로 안전하게 수신하고 보관합니다.</li>
+    <li>Solar Pro 4가 ai-wiki 스킬로 대화를 읽어 신규 위키 생성, 기존 위키 갱신, 위키 간 연결을 제안합니다.</li>
+    <li>사용자가 변경 내용과 원문 근거를 확인한 뒤 제안을 수락하거나 기각할 수 있도록 합니다.</li>
+    <li>수락된 결과만 개인 위키와 생각 지도에 반영합니다.</li>
+    <li>같은 주제의 후속 대화가 기존 위키의 갱신 제안으로 이어지도록 합니다.</li>
+    <li>Solar가 AutoSchema의 스키마 유도 방식을 참고해 노드의 개념적 역할과 관계 유형을 판단하도록 합니다.</li>
+  </ul>
+
+  <h3>1.3 범위</h3>
+  <table>
+    <thead><tr><th style="width:50%;text-align:center"><span class="badge in">포함</span></th><th style="text-align:center"><span class="badge out">제외</span></th></tr></thead>
+    <tbody>
+      <tr><td>AI와 주고받은 대화를 주제별 위키로 정리</td><td>단순 채팅 로그 보관만 하고 구조화하지 않는 방식</td></tr>
+      <tr><td>새 대화 유입 시 기존 위키 대조 후 신규·갱신·연결 제안 (초반 보수적 제안 + 근거 제시)</td><td>근거 없이 연관성만 나열하는 추천 스팸성 기능</td></tr>
+      <tr><td>과거 아이디어와 최근 맥락 사이 유용한 관계를 근거와 함께 제시</td><td>근거 표기 없는 자동 연관성 엔진</td></tr>
+      <tr><td>개발자뿐 아니라 일반 사용자도 쓸 수 있는 친근한 인터페이스와 낮은 진입장벽</td><td>특정 개발 도구/언어 전용 지식베이스로 한정</td></tr>
+      <tr><td>MCP를 통한 사용자 요청 기반 대화 원문 수신·보관</td><td>사용자 요청 없이 대화를 자동 수집하는 기능</td></tr>
+      <tr><td>Solar Pro 4가 ai-wiki 스킬로 만드는 신규·갱신·연결 제안</td><td>AI가 생성한 내용을 사용자 승인 없이 바로 위키에 반영하는 기능</td></tr>
+      <tr><td>변경 전후와 원문 근거를 확인한 뒤 수락·기각</td><td>제안 내용을 사용자가 직접 편집하는 기능</td></tr>
+      <tr><td>AutoSchema의 스키마 유도 방식을 참고한 관계 유형 추론</td><td>AutoSchemaKG 전체 파이프라인 및 자동 스키마 데이터베이스 구축</td></tr>
+      <tr><td>사용자가 승인한 위키 관계를 생각 지도에 표시</td><td>승인되지 않은 관계를 자동 확정하는 기능</td></tr>
+      <tr><td>위키와 보관 대화에 대한 기본 키워드 검색</td><td>개인화 랭킹·벡터 검색·그래프 경로 검색</td></tr>
+      <tr><td>TBD: 추후 사용자 유형별 확장(개인 지식 정리, 팀 공유 등)</td><td>지금 단계에서 확정할 세부 사용자 유형 분류</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 2. 문제 정의 ============ -->
+<section class="section overview">
+  <h2><span class="num">02</span>문제 정의</h2>
+  <div class="block"><h3>2.1 배경</h3>
+  <ul>
+    <li>AI를 자주 쓰는 사람들은 대화 내용이 쌓이지만, 나중에 다시 찾아보기 어렵습니다.</li>
+    <li>기록 자체가 흩어져 있으면, 예전 아이디어가 지금 맥락과 연결되는 지점을 놓치기 쉽습니다.</li>
+    <li>위키로 정리하면 꺼내 쓰기 좋지만, 사람이 매번 정리하기엔 부담이 큽니다.</li>
+  </ul>
+
+  </div>
+<div class="block"><h3>2.2 해결할 문제</h3>
+  <div class="grid c3">
+    <div class="card tint"><span class="eyebrow">문제 1</span><h4>기록으로만 남는 대화</h4><p>AI와 주고받은 대화가 기록으로만 남고, 주제별 지식으로 다시 꺼내 쓰기 어렵습니다.</p></div>
+    <div class="card tint"><span class="eyebrow">문제 2</span><h4>연결되지 않는 새 대화</h4><p>새 대화가 들어와도 기존 기록과 연결되지 않아, 과거 아이디어와의 관계가 표면화되지 않습니다.</p></div>
+    <div class="card tint"><span class="eyebrow">문제 3</span><h4>높은 진입장벽</h4><p>개발자 중심으로만 설계된 도구는 비개발자가 쓰기엔 진입장벽이 높습니다.</p></div>
+  </div>
+
+  </div>
+<div class="block"><h3>2.3 기대 효과</h3>
+  <ul>
+    <li>사용자가 따로 정리하지 않아도 대화 기록이 위키 형태로 남아 재탐색 비용이 낮아집니다.</li>
+    <li>새 대화 유입 시 기존 위키와의 관계가 제안되어, 위키가 정적 저장소가 아니라 진화하는 지식 기반이 됩니다.</li>
+    <li>과거와 현재 맥락 사이의 관계가 근거와 함께 제시되어, 예전 아이디어를 지금 상황에서 다시 활용할 가능성이 높아집니다.</li>
+    <li>비개발자도 쓸 수 있는 경험을 제공함으로써, AI를 사용하는 더 넓은 사용자층에게 가치를 전달할 수 있습니다.</li>
+    <li>대화가 일회성 채팅으로 끝나지 않고 신규 위키 또는 기존 위키의 갱신안으로 누적됩니다.</li>
+    <li>사용자는 제안의 변경 내용과 원문 근거를 확인한 후 수락 여부를 결정할 수 있습니다.</li>
+    <li>기존 위키 사이의 관계가 근거와 함께 제안되어, 따로 보관된 생각을 연결해서 볼 수 있습니다.</li>
+    <li>승인된 관계가 생각 지도에 표시되어 사용자가 자신의 지식 구조를 시각적으로 탐색할 수 있습니다.</li>
+  </ul>
+</div>
+</section>
+
+<!-- ============ 3. 페르소나 ============ -->
+<section class="section">
+  <h2><span class="num">03</span>목표 사용자</h2>
+  <h3>3.1 주요 사용자</h3>
+  <div class="grid c1 personas">
+    <div class="card"><span class="eyebrow">사용자 1</span><h4>AI로 아이디어를 정리하며 일하는 개인</h4>
+      <p>블로그를 쓰거나 공부하거나 기획하는 비개발자. AI와 자주 대화하지만 기록이 흩어져 있어, 예전에 했던 대화를 이어가려면 매번 찾고 다시 설명하는 데 힘이 드는 상황</p>
+      <dl class="kv"><dt>니즈</dt><dd>대화에서 자동으로 주제별 정리, 예전 생각과 지금 생각 사이 연결</dd><dt>페인</dt><dd>기록할 시간은 부족하고, 쌓아둔 대화는 다시 안 봄</dd></dl></div>
+    <div class="card"><span class="eyebrow">사용자 2</span><h4>여러 주제를 AI와 대화하며 배우는 사용자</h4>
+      <p>학습, 취미, 의사결정, 회고 등 다양한 맥락에서 AI와 소통하는 사람. 주제가 여러 갈래로 늘어나면 어느 대화에서 무엇을 배웠는지 되짚기 어려워, 같은 질문을 다시 하거나 처음부터 설명하는 데 힘이 드는 상황</p>
+      <dl class="kv"><dt>니즈</dt><dd>기술 중심이 아니라 아이디어·결정·배움 단위로 위키가 생기길 원함</dd><dt>페인</dt><dd>대화 내용이 많아져도 구조가 없어서 전체 그림이 안 보임</dd></dl></div>
+    <div class="card tint"><span class="eyebrow">사용자 3 · 향후</span><h4>소규모 팀 / 커뮤니티</h4>
+      <p>여러 사람이 AI와 주고받은 맥락을 함께 보고 싶은 팀. 지금은 구체화하지 않고 TBD로 둡니다.</p></div>
+  </div>
+
+  <h3>3.2 사용자 여정 요약</h3>
+  <table>
+    <thead><tr><th style="width:26%;text-align:center">터치포인트</th><th style="width:37%;text-align:center">현재의 고통 지점</th><th style="text-align:center">Nodus가 개입하는 방식</th></tr></thead>
+    <tbody>
+      <tr><td class="c">대화 발생</td><td class="c">기록이 흩어지고 끝나버림</td><td>"위키에 저장해" 한마디로 MCP를 통해 원문을 보관</td></tr>
+      <tr><td class="c">위키 확인</td><td class="c">별도 정리 없으면 찾기 어려움</td><td>Solar가 주제별 노드 초안을 만들고 사용자가 수락해 축적</td></tr>
+      <tr><td class="c">새 대화 유입</td><td class="c">기존 위키와 대조해 연결이 보이지 않음</td><td>기존 위키와 대조해 갱신·연결 제안을 근거와 함께 제시</td></tr>
+      <tr><td class="c">과거 회상</td><td class="c">예전 아이디어가 지금 맥락과 다시 연결되어도 표면화되지 않음</td><td>승인된 관계를 생각 지도에 표시하고 키워드로 위키·보관 대화를 검색</td></tr>
+    </tbody>
+  </table>
+  <p>이 제품은 여정의 각 지점에서 <strong>정리·제안·관계 제시</strong>를 통해 꺼내는 비용을 낮추는 것을 목표로 합니다.</p>
+</section>
+
+<!-- ============ 4. 기능 요구사항 ============ -->
+<section class="section">
+  <h2><span class="num">04</span>기능 요구사항</h2>
+  <h3>4.1 핵심 기능 (MVP 기준)</h3>
+  <table style="margin-bottom:8mm">
+    <thead><tr><th style="width:12%">ID</th><th>기능</th><th style="width:14%">우선순위</th></tr></thead>
+    <tbody>
+      <tr><td>F1</td><td>대화 읽어서 위키 노드 만들기</td><td><span class="badge p0">P0</span></td></tr>
+      <tr><td>F2</td><td>제안 수락/기각</td><td><span class="badge p0">P0</span></td></tr>
+      <tr><td>F3</td><td>새 대화 유입 시 기존 위키 대조 후 제안(신규·갱신·연결)</td><td><span class="badge p0">P0</span></td></tr>
+      <tr><td>F4</td><td>위키와 보관 대화 검색</td><td><span class="badge p1">P1</span></td></tr>
+      <tr><td>F5</td><td>Solar 기반 동적 관계 스키마 유도 및 연결 제안</td><td><span class="badge p0">P0</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="feature">
+    <div class="head"><h3>F1: 대화 읽어서 위키 노드 만들기</h3><span class="badge p0">P0</span></div>
+    <p>MCP로 전달된 대화 원문을 Solar Pro 4가 ai-wiki 스킬로 분석해 주제별 위키 노드 후보를 만듭니다. 기존 위키와 같은 주제라면 신규 노드보다 기존 위키 갱신을 우선합니다.</p>
+    <div class="story">"AI와 나눈 대화 기록을 선택하면, 주제별로 정리된 위키 노드가 자동으로 만들어지면 좋겠다."</div>
+    <div class="cols">
+      <div><h4>입력</h4><ul><li>MCP를 통해 전달된 대화 원문</li><li>기존 위키 노드</li></ul></div>
+      <div><h4>출력 / 결과</h4><ul><li>제목, 요약, 본문, 주제, 태그, 분류를 포함한 신규 위키 후보</li><li>또는 기존 위키 갱신 제안</li></ul></div>
+    </div>
+    <p><strong>제약:</strong> 생성 결과는 위키에 바로 반영하지 않고 제안 상태로 저장합니다.</p>
+  </div>
+
+  <div class="feature">
+    <div class="head"><h3>F2: 제안 수락/기각</h3><span class="badge p0">P0</span></div>
+    <p>사용자는 자동 생성된 제안의 내용과 근거를 검토한 뒤 수락하거나 기각할 수 있습니다.</p>
+    <div class="cols">
+      <div><h4>출력 / 결과</h4><ul><li>수락된 신규 제안은 위키 노드로 저장</li><li>수락된 갱신 제안은 기존 위키와 버전 이력에 반영</li><li>수락된 연결 제안은 위키 관계로 저장</li></ul></div>
+      <div><h4>&nbsp;</h4><ul><li>기각된 제안은 위키에 반영하지 않음</li><li>결정 상태와 시각은 새로고침 후에도 유지</li></ul></div>
+    </div>
+    <p><strong>제약:</strong> 사용자가 제안 내용을 직접 편집하는 기능은 MVP 범위에 포함하지 않습니다.</p>
+  </div>
+<div class="feature">
+    <div class="head"><h3>F3: 새 대화 유입 시 기존 위키 대조 후 제안</h3><span class="badge p0">P0</span></div>
+    <p>새로운 대화가 들어오면 기존 위키를 검토해, 신규 생성·갱신·연결이 필요해 보이는 내용을 사용자에게 제안합니다.</p>
+    <div class="story">"새로운 대화를 넣으면 기존 위키를 보고 '이 내용을 여기에 붙이면 좋겠다' 같은 제안을 해주면 좋겠다."</div>
+    <div class="cols">
+      <div><h4>입력</h4><ul><li>새로 들어온 대화</li><li>기존 위키 노드</li></ul></div>
+      <div><h4>출력 / 결과</h4><ul><li>신규 위키 생성 제안</li><li>기존 위키 갱신 제안</li><li>기존 위키 간 연결 제안</li><li>제안 이유와 원문 근거</li><li>갱신 제안의 변경 전후 미리보기</li></ul></div>
+    </div>
+    <h4>비고 / 제약</h4>
+    <ul>
+      <li>초반에는 가장 신뢰도 높은 제안만 보수적으로 보여줍니다.</li>
+      <li>제안은 결과만 던지는 게 아니라, <strong>사용자가 수락하기 전에 무엇이 바뀌는지 알 수 있어야 합니다.</strong></li>
+      <li>사용자가 수락/기각할 수 있어야 하며, 그 결정과 결과는 다음 새로고침/재접속 후에도 남아 있어야 합니다.</li>
+    </ul>
+  </div>
+
+  <div class="feature">
+    <div class="head"><h3>F4: 위키와 보관 대화 검색</h3><span class="badge p1">P1</span></div>
+    <p>사용자는 키워드로 승인된 위키와 서비스에 보관된 대화를 함께 검색할 수 있습니다.</p>
+    <div class="story">"예전에 저장한 위키나 대화 내용을 키워드로 다시 찾고 싶다."</div>
+    <div class="cols">
+      <div><h4>입력</h4><ul><li>사용자의 검색어</li></ul></div>
+      <div><h4>출력 / 결과</h4><ul><li>검색어가 포함된 위키 노드</li><li>검색어가 포함된 보관 대화</li><li>검색 결과에서 위키 상세 또는 원본 대화로 이동</li></ul></div>
+    </div>
+    <p><strong>제약:</strong> 개인화 랭킹, 벡터 검색, 그래프 경로 검색은 현재 MVP 범위에 포함하지 않습니다.</p>
+  </div>
+
+  <div class="feature">
+    <div class="head"><h3>F5: Solar 기반 동적 관계 스키마 유도 및 연결 제안</h3><span class="badge p0">P0</span></div>
+    <p>Solar Pro 4는 AutoSchema의 데이터 기반 스키마 유도 방식을 참고해, 기존 위키 노드와 새 대화에서 노드의 개념적 역할과 관계 유형을 추론합니다. 이를 바탕으로 근거가 있는 위키 연결 후보를 생성합니다.</p>
+    <div class="story">"서로 관련된 위키가 있다면 어떤 관계인지와 왜 연결되는지 확인하고 직접 승인하고 싶다."</div>
+    <div class="cols">
+      <div><h4>입력</h4><ul><li>새 대화 원문</li><li>기존 위키 노드</li><li>원문 세그먼트</li></ul></div>
+      <div><h4>출력 / 결과</h4><ul><li>출발 위키와 도착 위키</li><li>각 위키의 개념적 역할</li><li>관계 유형</li><li>관계 판단 이유</li><li>원문 근거</li></ul></div>
+    </div>
+    <h4>제약</h4>
+    <ul>
+      <li>공통 단어 또는 태그가 있다는 이유만으로 연결하지 않습니다.</li>
+      <li>관계의 의미와 원문 근거가 명확하지 않으면 제안하지 않습니다.</li>
+      <li>관계 후보는 제안 목록에만 저장하며 사용자 승인 전에는 확정하지 않습니다.</li>
+      <li>사용자가 수락한 관계만 생각 지도에 표시합니다.</li>
+    </ul>
+    <p><strong>구현 범위:</strong> AutoSchemaKG 전체 라이브러리를 실행하는 것이 아니라, 데이터에서 개념 유형과 관계 유형을 유도한 뒤 관계를 추출하는 핵심 방식을 Solar의 구조화 출력에 적용합니다.</p>
+  </div>
+
+  </section>
+
+<!-- ============ 4.1.1 데이터 흐름 ============ -->
+<section class="section">
+  <h2><span class="num">04-1</span>데이터 수신 · 저장 · 반영 흐름</h2>
+  <p class="lead">MVP에서의 데이터 전달과 위키 반영 흐름을 정의합니다. 자동 제안이 곧바로 반영되는 구조가 아니라 <strong>보관 → 후보 생성 → 제안 → 사용자 확인 → 사용자 선택 반영</strong> 순서로 진행됩니다.</p>
+  <div class="flow">
+    <div class="step auto"><span class="n">1</span><h4>전송 시작</h4><p>사용자의 명시적 저장 요청 → 에이전트가 MCP 도구 <code>submit_conversation</code> 호출</p></div>
+    <div class="step auto"><span class="n">2</span><h4>보관</h4><p>원문 구간 + 맥락을 원본 보관 영역에 저장. 정리본과 분리</p></div>
+    <div class="step auto"><span class="n">3</span><h4>후보 생성</h4><p>Solar Pro 4가 ai-wiki 스킬로 기존 위키와 대조해 신규·갱신·연결 제안 생성</p></div>
+    <div class="step human"><span class="n">4</span><h4>사용자 확인</h4><p>변경 전후와 원문 근거를 보고 수락 / 기각</p></div>
+    <div class="step human"><span class="n">5</span><h4>반영</h4><p>수락한 것만 위키·버전 이력·관계·생각 지도에 반영</p></div>
+  </div>
+
+  <h3>(1) 전송 시작 방식</h3>
+  <ul>
+    <li>MVP에서는 <strong>사용자가 명시적으로 "이 내용을 위키에 저장해줘"라고 요청</strong>할 때만 전송을 시작합니다. 자동 스트리밍, 주기 전송, 대화 종료 자동 전송은 제외합니다.</li>
+    <li>전송은 <strong>Solar 기반 에이전트 → 우리 서비스 MCP 도구 호출</strong> 경로로 이뤄지며, 대화 내용(구간 + 맥락)이 전달됩니다.</li>
+    <li><strong>저장 요청의 해석:</strong> "위키에 저장해"처럼 말하면 저장 요청으로 해석하고 별도 확인 없이 <code>submit_conversation</code>을 호출합니다.</li>
+    <li><strong>구간 지정 우선:</strong> 사용자가 특정 구간을 지정했으면 그 구간만 보냅니다. 지정하지 않았고 현재 주제가 진행 중이면, 위키에 남길 가치가 있는 내용(주제·아이디어·결정·계획·배움·회고)이 포함된 하나의 주제 범위로 묶어 보냅니다.</li>
+    <li><strong>질문은 불명확할 때만:</strong> 어떤 구간·주제인지 에이전트도 판단할 수 없을 때만 범위를 확인하는 질문을 합니다.</li>
+    <li><strong>보이는 대화만 전송:</strong> 에이전트에게 실제로 보이는 내용만 보내며, 없는 대화를 추론해 만들어내지 않습니다.</li>
+    <li><strong>저장 요청 없으면 전송하지 않음:</strong> 대화가 끝났어도 자동으로 전송하지 않습니다.</li>
+    <li>에이전트 지침에서 저장 요청 처리의 연결 위치를 찾을 수 없으면 임의로 행동하지 않고 누락 사실을 보고합니다.</li>
+  </ul>
+
+  <h3>(2) 전송 단위 및 입력 계약</h3>
+  <p><code>submit_conversation</code>은 역할 구분 메시지 목록(<code>messages</code>) 또는 대화 텍스트(<code>conversation_text</code>) 중 하나로 원문 구간을 전달합니다. 둘이 함께 오면 불일치 검사를 수행합니다.</p>
+  <table>
+    <thead><tr><th style="width:26%">필드</th><th style="width:12%">필수</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td><code>session_id</code></td><td>필수</td><td>대화/세션을 식별하는 ID</td></tr>
+      <tr><td><code>conversation_text</code></td><td>선택</td><td>전송할 대화 원문(구간). messages가 없을 때 사용</td></tr>
+      <tr><td><code>messages[]</code></td><td>선택</td><td>역할이 구분된 메시지 목록. 각 항목은 <code>role</code>, <code>content</code> 필수, <code>record_id</code>, <code>timestamp</code>(ISO 8601) 선택. 제공되면 원문의 1차 출처</td></tr>
+      <tr><td><code>source</code></td><td>선택</td><td>전송 출처 구분. 예: <code>mcp</code>, <code>agent</code>, <code>user_direct</code></td></tr>
+      <tr><td><code>context</code></td><td>선택</td><td>주제, 스킬, 세션 유형, 앞뒤 흐름 등 보충 맥락. 대화 원문 자체는 넣지 않는다</td></tr>
+    </tbody>
+  </table>
+  <h4>입력 계약 원칙</h4>
+  <ul>
+    <li>role과 content 중 하나라도 누락되면 도구 오류로 처리합니다. 알 수 없는 id나 시각을 추측해 넣지 않습니다.</li>
+    <li>messages와 conversation_text가 함께 오면, 메시지를 역할과 함께 연결한 재구성 텍스트와 conversation_text를 공백·개행 정규화 후 비교합니다. 실질적으로 같으면 정상 처리하고, 다르면 도구 오류로 처리합니다.</li>
+    <li>기존 <code>conversation_text</code> 기반 호출은 계속 지원합니다.</li>
+  </ul>
+  <h4>예시 (messages 방식)</h4>
+<pre><code>{
+  "session_id": "sess-12345",
+  "source": "agent",
+  "messages": [
+    { "role": "user", "content": "동네 산책 사진으로 사진집을 만들까 고민 중이야.", "record_id": "msg-001", "timestamp": "2026-09-15T10:00:00+09:00" },
+    { "role": "assistant", "content": "사진집은 인쇄와 전자책 두 가지 형식이 있어요. 어떤 쪽으로 생각하세요?", "record_id": "msg-002", "timestamp": "2026-09-15T10:00:15+09:00" },
+    { "role": "user", "content": "아직 정리는 안 됐고, 일단 아이디어만 보관해두고 싶어.", "record_id": "msg-003", "timestamp": "2026-09-15T10:00:30+09:00" }
+  ],
+  "context": { "topic": "사진집 기획", "skill": "ai-wiki" }
+}</code></pre>
+
+  <h3>(3) 전달 후 보관</h3>
+  <ul>
+    <li>전달받은 기록은 먼저 <strong>보관</strong>합니다. 보관은 위키 반영과 분리하며, 나중에 정리·제안·검색에 쓸 원본성 기록으로 남깁니다.</li>
+    <li>보관은 두 층입니다. <strong>서비스 수신 원본</strong>(MCP로 전달받은 구간 + 맥락)과 <strong>사용자 추가 원본</strong>(사용자가 직접 덧붙이거나 외부에서 가져온 원본).</li>
+    <li>보관한 기록은 곧바로 위키로 바꾸지 않고, Solar Pro 4가 ai-wiki 스킬로 읽어 위키 생성/변경 후보를 만드는 입력으로 씁니다.</li>
+  </ul>
+  <h3>(4) 위키 생성/변경 제안 · (5) 사용자 확인 및 선택 반영</h3>
+  <ul>
+    <li>전달받은 대화 내용을 바탕으로 Solar Pro 4가 ai-wiki 스킬로 신규·갱신·연결 제안을 만들고, 적용 시 무엇이 바뀌는지(변경 전/후)를 함께 보여줍니다.</li>
+    <li>사용자는 제안을 확인한 뒤 변경 전/후를 보고 수락 또는 기각합니다. 결정과 결과는 새로고침·재접속 후에도 남습니다.</li>
+  </ul>
+  <h3>(6) MVP에서 다루지 않는 것</h3>
+  <ul>
+    <li>전체 대화를 항상 통째로 보내는 방식, 자동 재전송/주기 동기화, 사용자 요청 없이 대화 종료 시 자동 위키화</li>
+    <li>2차 릴리즈 후보: 위키 노드 타입 확장(아이디어·결정·계획·배움·회고), 사용자 유형별 경험 세분화, 위키 공유/협업, 더 정교한 관계 그래프 시각화, 사용자 피드백을 활용한 제안 품질 지속 개선</li>
+  </ul>
+</section>
+
+<!-- ============ 5. 비기능 ============ -->
+<section class="section">
+  <h2><span class="num">05</span>비기능 요구사항</h2>
+  <table>
+    <thead><tr><th style="width:26%">항목</th><th>요구사항</th></tr></thead>
+    <tbody>
+      <tr><td>성능</td><td>위키 열람과 제안 제시는 사용자가 기다림을 느끼지 않는 수준이어야 함. 대화 파싱/요약/대조는 백그라운드 또는 비동기 처리 검토</td></tr>
+      <tr><td>보안</td><td>사용자 대화/지식 데이터는 민감할 수 있으므로 저장·전송 시 적절한 보호 필요. 사용자별 데이터 격리 필수. MCP 연동은 사용자별 발급 토큰(Bearer)으로 인증</td></tr>
+      <tr><td>가용성 / SLA</td><td>MVP 기준으로 핵심 위키 열람/제안은 안정적으로 제공되어야 함</td></tr>
+      <tr><td>확장성</td><td>위키 노드와 관계가 늘어나도 탐색/제안이 무너지지 않도록 구조 설계 필요</td></tr>
+      <tr><td>호환성</td><td>웹 기반이므로 주요 브라우저에서 정상 동작해야 함</td></tr>
+      <tr><td>접근성</td><td>비개발자 사용자도 쓰므로 읽기/탐색/제안을 이해하기 쉬워야 함</td></tr>
+      <tr><td>로깅 / 모니터링</td><td>제안 수락/기각, 위키 조회 등 핵심 행동 로그를 남겨 품질 개선에 활용</td></tr>
+      <tr><td>규제 / 컴플라이언스</td><td>사용자 데이터 처리 관련 요구사항이 있으면 반영</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:8mm"><span class="num">06</span>사용자 경험 / UI 요구사항</h2>
+  <h3>6.1 주요 화면 / 플로우</h3>
+  <div class="grid c2">
+    <div class="card"><span class="eyebrow">화면 1</span><h4>생각 지도 (홈)</h4><p>승인된 위키 노드와 관계를 그래프로 탐색합니다. 노드를 선택하면 요약과 정리 본문, 전체 보기, 대화로 이어가기를 제공합니다.</p></div>
+    <div class="card"><span class="eyebrow">화면 2</span><h4>내 위키 · 위키 상세</h4><p>주제별 노드 목록과 개별 노드의 제목·요약·본문·주제 태그·갱신 이력.</p></div>
+    <div class="card"><span class="eyebrow">화면 3</span><h4>제안 목록 · 제안 상세</h4><p>신규·갱신·연결 제안을 유형·상태 배지와 함께 나열하고, 상세에서 변경 전후 비교와 원문 근거를 확인한 뒤 수락 또는 기각합니다.</p></div>
+    <div class="card"><span class="eyebrow">화면 4</span><h4>유입 기록 · MCP 연결 · 검색</h4><p>보관된 대화 원문 목록, 에이전트 연동용 토큰 발급 화면, 위키와 보관 대화를 함께 찾는 검색 결과.</p></div>
+  </div>
+
+  <h3 style="break-before: page; page-break-before: always; margin-top: 0">6.2 디자인 원칙</h3>
+  <ul>
+    <li><strong>낮은 진입장벽:</strong> 개발자뿐 아니라 AI를 쓰는 일반 사용자도 처음 보고 이해할 수 있어야 합니다.</li>
+    <li><strong>명료성:</strong> 신규/갱신/연결 같은 개념도 무겁지 않게, 짧고 직관적으로 표현합니다.</li>
+    <li><strong>통제감:</strong> 자동 정리가 기본이지만 반영 여부는 항상 사용자가 수락/기각으로 결정합니다.</li>
+    <li><strong>자동과 승인의 분리:</strong> 대화 읽기와 후보 생성은 자동화 구간, 실제 위키 반영은 승인 구간입니다. 승인 전에 변경 전/후를 확인하고 결정하게 합니다.</li>
+    <li><strong>근거 투명성:</strong> 관계/제안을 제시할 때 왜 그런지 근거를 함께 보여줍니다.</li>
+    <li><strong>과도한 자동화 회피:</strong> 초반에는 신뢰 높은 제안만 보수적으로 보여주고 사용자에게 피로가 쌓이지 않게 합니다.</li>
+  </ul>
+  <h3>6.3 에러 / 예외 처리</h3>
+  <ul>
+    <li>대화/스킬 데이터를 읽지 못할 때: 유입 기록에 실패 상태와 사유를 남기고 사용자에게 안내합니다.</li>
+    <li>위키 구조가 아직 비어 있거나 너무 적을 때: 빈 상태 화면에서 다음 행동(대화 저장, 제안 확인)을 안내합니다.</li>
+    <li>제안의 근거가 약해서 표시하지 않는 경우: 제안을 만들지 않거나 "현재 근거 충분치 않음"으로 표기합니다.</li>
+  </ul>
+</section>
+
+<!-- ============ 7. 데이터 모델 ============ -->
+<section class="section">
+  <h2><span class="num">07</span>데이터 모델 / API</h2>
+  <h3>7.1 핵심 엔티티</h3>
+  <table>
+    <thead><tr><th style="width:26%">엔티티</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td>사용자 (User)</td><td>모든 데이터의 격리 단위. MCP 연결 토큰의 소유자</td></tr>
+      <tr><td>유입 기록 (Record)</td><td>MCP 또는 직접 입력으로 들어온 대화 원문과 맥락. 원본 보관 영역</td></tr>
+      <tr><td>대화 세그먼트 (ConversationSegment)</td><td>원문을 근거 단위로 나눈 조각. 제안의 근거(evidence)가 가리키는 대상</td></tr>
+      <tr><td>위키 노드 (WikiNode) · 노드 버전 (NodeVersion)</td><td>주제/엔티티 단위 정리본과 갱신 이력</td></tr>
+      <tr><td>제안 (Proposal) · 제안 근거 (ProposalEvidence)</td><td>신규·갱신·연결 후보, 변경 전/후, 상태(제안됨·승인됨·기각됨·반영됨), 결정 시각, 원문 인용</td></tr>
+      <tr><td>노드 관계 (NodeRelationship)</td><td>수락된 연결 제안에서 생긴 관계. 관계 유형과 근거를 가지며 생각 지도에 표시</td></tr>
+      <tr><td>원본→노드 매핑 (RecordToNode)</td><td>어떤 원문 구간이 어떤 노드에 반영됐는지 추적</td></tr>
+      <tr><td>MCP 연결 토큰 (McpCredential)</td><td>에이전트가 사용자 계정으로 대화를 제출할 때 쓰는 Bearer 토큰</td></tr>
+    </tbody>
+  </table>
+  <div class="note">제안 후보는 "생성됨"과 "승인/기각/반영됨" 상태를 구분해 관리합니다. 자동으로 만든 후보와 실제 위키에 반영된 결과를 혼동하지 않도록 제안→승인→반영 흐름을 별도 상태·이력으로 추적합니다.</div>
+
+  <h3>7.1.1 위키 저장 구조</h3>
+  <div class="twolayer">
+    <div class="layer"><h4>원본 보관 영역</h4><ul><li>MCP로 전달받은 대화 구간 + 맥락</li><li>사용자가 직접 덧붙인 원본</li><li>입력 당시의 기록을 그대로 보존</li><li>세그먼트 단위로 근거 참조 가능</li></ul></div>
+    <div class="arrow">→</div>
+    <div class="layer" style="border-style:solid;border-color:#14181c;background:#f1f3f4"><h4>위키 정리본 영역</h4><ul><li>주제/엔티티 단위 노드(제목·요약·본문·주제·태그·분류)</li><li>수락된 갱신은 기존 내용을 보존하며 새 버전으로 누적</li><li>수락된 연결은 관계로 저장되어 생각 지도에 표시</li><li>어떤 원문이 어떤 노드에 반영됐는지 매핑</li></ul></div>
+  </div>
+  <ul>
+    <li><strong>분리 원칙:</strong> 원본과 정리본이 섞이지 않게 관리합니다. 원본은 보존 용도, 정리본은 꺼내 읽기 좋게 재구성한 결과물입니다.</li>
+    <li><strong>매핑:</strong> 하나의 대화 구간이 여러 노드에 걸칠 수 있고, 한 노드가 여러 구간에서 보강될 수 있습니다. 이 관계를 추적 가능하게 남깁니다.</li>
+    <li><strong>갱신/누적:</strong> 같은 주제를 다시 만나면 새로 만들지 않고 기존 내용을 보존하며 갱신하고, 언제 어떤 변경이 있었는지 버전 이력을 남깁니다.</li>
+    <li><strong>저장 시 명시할 것:</strong> 어떤 원본 구간이 어떤 노드에 반영됐는지, 어떤 변경이 있었는지(전/후), 제안이 수락됐는지 기각됐는지, 자동 반영이 아니라 사용자 선택으로 반영됐는지.</li>
+  </ul>
+
+  <h3>7.2 주요 API 엔드포인트</h3>
+  <table>
+    <thead><tr><th style="width:12%">메서드</th><th style="width:36%">경로</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge mcp">MCP</span></td><td><code>/mcp</code> · <code>submit_conversation</code></td><td>에이전트가 사용자 토큰으로 대화 원문 제출 (Streamable HTTP)</td></tr>
+      <tr><td>POST / GET</td><td><code>/api/credentials</code></td><td>MCP 연결 토큰 발급·목록·폐기</td></tr>
+      <tr><td>GET / POST</td><td><code>/api/records</code></td><td>보관된 대화 목록 조회 · 원문 등록 후 후보 생성</td></tr>
+      <tr><td>GET</td><td><code>/api/proposals</code>, <code>/api/proposals/:id</code></td><td>제안 목록·상세 (근거, 변경 전/후 포함)</td></tr>
+      <tr><td>POST</td><td><code>/api/proposals/:id/decide</code></td><td>수락/기각. 수락 시 노드 생성·갱신 또는 관계 저장</td></tr>
+      <tr><td>GET</td><td><code>/api/nodes</code>, <code>/api/nodes/:id</code></td><td>승인된 위키 노드 목록·상세</td></tr>
+      <tr><td>GET</td><td><code>/api/graph</code></td><td>생각 지도용 노드와 승인된 관계(edges)</td></tr>
+      <tr><td>GET</td><td><code>/api/search/wiki-nodes</code>, <code>/api/search/chat-messages</code></td><td>키워드 검색 (위키 노드 · 보관 대화)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 8~9. 지표 / 리스크 ============ -->
+<section class="section">
+  <h2><span class="num">08</span>성공 지표</h2>
+  <h3>8.1 MVP 성공 기준</h3>
+  <ul class="check">
+    <li>MCP로 제출한 대화가 사용자 계정의 유입 기록에 저장됩니다.</li>
+    <li>제출된 대화에서 최소 한 개 이상의 신규·갱신·연결 제안을 생성할 수 있습니다.</li>
+    <li>신규 제안을 수락하면 내 위키에 노드가 생성됩니다.</li>
+    <li>같은 주제의 후속 대화가 기존 위키 갱신 제안으로 이어집니다.</li>
+    <li>연결 제안을 수락하면 생각 지도에 두 위키의 관계선이 표시됩니다.</li>
+    <li>기각한 제안은 위키에 반영되지 않습니다.</li>
+    <li>새로고침 후에도 위키와 결정 상태가 유지됩니다.</li>
+  </ul>
+  <h3>8.2 추적 방법</h3>
+  <ul>
+    <li>위키 열람, 노드 클릭, 제안 노출/수락/기각, 관계 제시 노출/클릭 등 이벤트 설계</li>
+    <li>초기엔 과도한 이벤트보다 핵심 행동 위주로 추적</li>
+  </ul>
+
+  <h2 style="margin-top:8mm"><span class="num">09</span>리스크 &amp; 의존성</h2>
+  <table>
+    <thead><tr><th style="width:30%">리스크</th><th style="width:34%">설명</th><th>완화 방안</th></tr></thead>
+    <tbody>
+      <tr><td>제안 품질이 낮으면 스팸처럼 느껴질 수 있음</td><td>근거 부실/과도한 제안은 신뢰를 떨어뜨림</td><td>초반 보수적 제안, 근거 표기, 사용자 피드백 반영</td></tr>
+      <tr><td>자동 정리가 사용자의 통제감을 약화시킬 수 있음</td><td>위키가 사용자 의도와 다르게 정리될 수 있음</td><td>모든 반영을 수락/기각 승인 뒤에만 수행</td></tr>
+      <tr><td>대화가 너무 적으면 위키/제안이 빈약할 수 있음</td><td>초기 데이터 부족 시 가치 체감이 어려움</td><td>비어 있는 상태 UX 고려, 점진적 적립 경험 설계</td></tr>
+      <tr><td>비개발자 사용자에게 개념이 어렵게 느껴질 수 있음</td><td>신규/갱신/연결 같은 표현이 부담될 수 있음</td><td>친근한 표현, 짧은 설명, 점진적 노출</td></tr>
+    </tbody>
+  </table>
+  <p><strong>외부 의존성:</strong> Solar Pro 4 API(Upstage), MCP 클라이언트를 가진 에이전트(Hermes 등), PostgreSQL, 프론트/백엔드 호스팅.</p>
+</section>
+
+<!-- ============ 10~11. 일정 / 부록 ============ -->
+<section class="section">
+  <h2><span class="num">10</span>일정 / 마일스톤</h2>
+  <table>
+    <thead><tr><th style="width:22%">단계</th><th style="width:22%">기간</th><th>산출물 / 완료 기준</th></tr></thead>
+    <tbody>
+      <tr><td>리서치 / 설계</td><td>예선 ~ 2026-09-11</td><td>핵심 사용자 유형, 위키 단위, 제안/관계 제시 방식, 데이터 모델 초안, PRD 0.1</td></tr>
+      <tr><td>MVP 개발</td><td>2026-09-12 ~ 09-16</td><td>MCP 수신·보관, 대화→위키 노드 생성, 기존 위키 대조 제안(신규·갱신·연결), 관계 제시 + 근거, 위키 조회/탐색/검색, 제안 수락/기각 기본 흐름</td></tr>
+      <tr><td>내부 테스트</td><td>2026-09-16</td><td>실제 대화 데이터로 위키 품질/제안 품질 확인, 흐름 점검</td></tr>
+      <tr><td>결선 제출 / 시연</td><td>2026-09-16 ~</td><td>핵심 흐름이 안정적으로 동작하고 비개발자 사용자도 쓸 수 있는 경험 확보. 제출 후 배포본 유지</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:8mm"><span class="num">11</span>부록</h2>
+  <h3>용어 정리</h3>
+  <table>
+    <thead><tr><th style="width:26%">용어</th><th>뜻</th></tr></thead>
+    <tbody>
+      <tr><td>ai-wiki 스킬</td><td>예선에서 만든 대표 스킬. 원본·정리본 분리, 병합/분리/연결 제안, 민감정보 경고, 갱신 이력 원칙 등 위키 운영 규칙을 담은 지침 문서(ai-wiki-SKILL.md)</td></tr>
+      <tr><td>Solar Pro 4</td><td>Upstage의 LLM. 이 서비스의 후보 생성과 관계 유도를 담당하는 유일한 모델</td></tr>
+      <tr><td>MCP</td><td>Model Context Protocol. 외부 에이전트가 우리 서비스의 <code>submit_conversation</code> 도구를 호출해 대화를 보내는 표준 통로</td></tr>
+      <tr><td>유입 기록 (Record)</td><td>보관된 대화 원문 한 건</td></tr>
+      <tr><td>세그먼트</td><td>원문을 근거 단위로 나눈 조각. 제안의 근거가 가리키는 대상</td></tr>
+      <tr><td>제안 (Proposal)</td><td>Solar가 만든 신규·갱신·연결 후보. 수락 전에는 위키에 영향을 주지 않음</td></tr>
+      <tr><td>위키 노드</td><td>승인된 정리본의 단위(주제/엔티티)</td></tr>
+      <tr><td>생각 지도</td><td>승인된 노드와 관계를 시각화한 그래프 홈 화면</td></tr>
+    </tbody>
+  </table>
+
+  <p class="foot">Nodus · MABC 2026 결선 제출 PRD v0.2 · 2026-09-16</p>
+</section>
+
+</div>
+</body>
+</html>
